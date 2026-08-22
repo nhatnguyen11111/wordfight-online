@@ -9,11 +9,19 @@ import { FooterSEO } from "@/components/footer-seo";
 import { sounds } from "@/lib/sound-effects";
 
 export default function Home() {
-  const { vuaLevels, openModal } = useGame();
+  const { vuaLevels, viLevels, enLevels, openModal } = useGame();
 
-  // Calculate completed level stats
-  const completedVuaLevelsCount = Object.values(vuaLevels).filter((lvl) => lvl.completed).length;
-  const vuaPercent = Math.min(100, Math.round((completedVuaLevelsCount / 30) * 100));
+  // 1. Vua Tiếng Việt percentage (30 levels)
+  const completedVuaCount = Object.values(vuaLevels || {}).filter((lvl) => lvl.completed).length;
+  const vuaPercent = Math.min(100, Math.round((completedVuaCount / 30) * 100));
+
+  // 2. Nối từ Tiếng Việt percentage (10 levels)
+  const completedViCount = Object.values(viLevels || {}).filter((lvl) => lvl.completed).length;
+  const viPercent = Math.min(100, Math.round((completedViCount / 10) * 100));
+
+  // 3. Nối từ Tiếng Anh percentage (10 levels)
+  const completedEnCount = Object.values(enLevels || {}).filter((lvl) => lvl.completed).length;
+  const enPercent = Math.min(100, Math.round((completedEnCount / 10) * 100));
 
   return (
     <div className="relative flex min-h-[calc(100dvh-76px)] flex-col justify-between pt-20 md:pt-24 pb-8 px-4 sm:px-8">
@@ -65,14 +73,14 @@ export default function Home() {
                   <div className="relative h-3.5 flex-1 overflow-hidden rounded-full border border-[#b87417]/40 bg-[#fff6de] shadow-inner">
                     <div
                       className="h-full rounded-full transition-all duration-500 ease-out bg-gradient-to-r from-[#fff0b8] via-[#ffd86f] to-[#ffb238]"
-                      style={{ width: `${vuaPercent}%` }}
+                      style={{ width: `${Math.max(vuaPercent, 0)}%` }}
                     />
                     <span className="absolute inset-0 flex items-center justify-center text-[8px] font-black tracking-wide text-[#7a4300]">
                       {vuaPercent}%
                     </span>
                   </div>
                   <span className="shrink-0 text-[10px] font-black text-[#7a4300]">
-                    {completedVuaLevelsCount}/30 level
+                    {completedVuaCount}/30 level
                   </span>
                 </div>
               </div>
@@ -107,13 +115,16 @@ export default function Home() {
 
                     <div className="flex items-center gap-2">
                       <div className="relative h-3 flex-1 overflow-hidden rounded-full border border-[#5ca963]/40 bg-[#f6fff4] shadow-inner">
-                        <div className="h-full rounded-full bg-gradient-to-r from-[#edfede] via-[#a5e793] to-[#67cf64] w-[45%]" />
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-[#edfede] via-[#a5e793] to-[#67cf64] transition-all duration-500"
+                          style={{ width: `${viPercent}%` }}
+                        />
                         <span className="absolute inset-0 flex items-center justify-center text-[8px] font-black text-[#1d4d28]">
-                          45%
+                          {viPercent}%
                         </span>
                       </div>
                       <span className="shrink-0 text-[9px] font-black text-[#1d4d28]">
-                        Solo / Bot
+                        {completedViCount}/10 màn
                       </span>
                     </div>
                   </div>
@@ -144,13 +155,16 @@ export default function Home() {
 
                     <div className="flex items-center gap-2">
                       <div className="relative h-3 flex-1 overflow-hidden rounded-full border border-[#5ca963]/40 bg-[#f6fff4] shadow-inner">
-                        <div className="h-full rounded-full bg-gradient-to-r from-[#edfede] via-[#a5e793] to-[#67cf64] w-[30%]" />
+                        <div
+                          className="h-full rounded-full bg-gradient-to-r from-[#edfede] via-[#a5e793] to-[#67cf64] transition-all duration-500"
+                          style={{ width: `${enPercent}%` }}
+                        />
                         <span className="absolute inset-0 flex items-center justify-center text-[8px] font-black text-[#1d4d28]">
-                          30%
+                          {enPercent}%
                         </span>
                       </div>
                       <span className="shrink-0 text-[9px] font-black text-[#1d4d28]">
-                        Solo / Bot
+                        {completedEnCount}/10 màn
                       </span>
                     </div>
                   </div>
