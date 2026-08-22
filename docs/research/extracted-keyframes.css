@@ -1,0 +1,85 @@
+@keyframes bounce{0%,to{transform:translateY(-25%);animation-timing-function:cubic-bezier(.8,0,1,1)}
+
+@keyframes ping{75%,to{transform:scale(2);opacity:0}
+
+@keyframes pulse{50%{opacity:.5}
+
+@keyframes spin{to{transform:rotate(1turn)}
+
+@keyframes enter{0%{opacity:var(--tw-enter-opacity,1);transform:translate3d(var(--tw-enter-translate-x,0),var(--tw-enter-translate-y,0),0) scale3d(var(--tw-enter-scale,1),var(--tw-enter-scale,1),var(--tw-enter-scale,1)) rotate(var(--tw-enter-rotate,0))}
+
+@keyframes exit{to{opacity:var(--tw-exit-opacity,1);transform:translate3d(var(--tw-exit-translate-x,0),var(--tw-exit-translate-y,0),0) scale3d(var(--tw-exit-scale,1),var(--tw-exit-scale,1),var(--tw-exit-scale,1)) rotate(var(--tw-exit-rotate,0))}
+
+@keyframes wf-fb-led-spin{to{--wf-fb-led-angle:360deg}
+
+@keyframes wf-button-hover-jiggle{0%{transform:translateZ(0) rotate(0deg) scale(1)}
+
+@keyframes wf-button-press-jiggle{0%{transform:translateZ(0) rotate(0deg) scale(1)}
+
+@keyframes wf-button-sheen{0%{transform:translateX(-180%) skewX(-24deg);opacity:0}
+
+@keyframes fade-in-scale{0%{transform:scale(.98);opacity:0}
+
+@keyframes fall{0%{transform:translateY(0)}
+
+@keyframes tet-fall{0%{transform:translateY(0) translateX(0) rotate(0deg);opacity:.8}
+
+@keyframes tet-fall-bg{0%{transform:translateY(0) translateX(0) rotate(0deg)}
+
+@keyframes countdown{0%{stroke-dashoffset:0}
+
+@keyframes sparkle-bg{0%{background-position:0 50%}
+
+@keyframes tet-gradient-shimmer{0%{background-position:0 50%}
+
+@keyframes pop-in{0%{opacity:0;transform:scale(.5)}
+
+@keyframes pulse-grow{0%,to{transform:scale(1)}
+
+@keyframes caro-gentle-breathe{0%,to{transform:scale(1)}
+
+@keyframes sparkle-effect{0%,to{opacity:0;transform:scale(.5) rotate(0deg)}
+
+@keyframes sparkle-trail-appear{0%{opacity:0;transform:scale(.3) rotate(0deg)}
+
+@keyframes fly-to-corner{0%{transform:translate(-50%,-50%) scale(1.5);opacity:1}
+
+@keyframes fly-up-desktop{0%{transform:translate(-50%,-50%) scale(1.5);opacity:1}
+
+@keyframes holiday-fly-across{0%{transform:translateX(150px) translateY(0) rotate(0deg);opacity:1}
+
+@keyframes holiday-sparkle-fly{0%{transform:translateX(30px) translateY(0) rotate(3deg);opacity:0}
+
+@keyframes holiday-fly-across-mobile{0%{transform:translateX(150px) translateY(0) rotate(0deg);opacity:1}
+
+@keyframes wf-fb-bounce{0%,to{transform:translateY(0) scale(1)}
+
+@keyframes wf-badge-wiggle{0%,to{transform:rotate(0deg) scale(1)}
+
+@keyframes wf-cta-breathe{0%,to{transform:scale(1)}
+
+@keyframes wf-card-shake{0%,to{transform:translateX(0)}
+
+@keyframes wf-home-logo-wobble{0%,to{transform:translateZ(0) rotate(0deg) scale(1)}
+
+@keyframes wf-icon-bob-a{0%,to{transform:translateY(0) rotate(-.25deg)}
+
+@keyframes wf-cta-wiggle{0%,8%,to{transform:rotate(0deg)}
+
+@keyframes wf-home-badge-sway{0%,12%,to{transform:translateZ(0) rotate(0deg)}
+
+@keyframes wf-home-tile-idle-a{0%,to{translate:0 0;rotate:0deg}
+
+@keyframes wf-home-tile-idle-b{0%,to{translate:0 0;rotate:0deg}
+
+@keyframes wf-home-tile-idle-c{0%,to{translate:0 0;rotate:0deg}
+
+@keyframes wf-home-tile-idle-d{0%,to{translate:0 0;rotate:0deg}
+
+@keyframes led-rotate{0%{--led-angle:0deg}
+
+@keyframes shimmer-sweep{0%{transform:translateX(-150%) skewX(-15deg)}
+
+@keyframes accordion-up{0%{height:var(--radix-accordion-content-height)}
+
+@keyframes accordion-down{0%{height:0}

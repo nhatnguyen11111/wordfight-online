@@ -1,0 +1,261 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --font-nunito: "Nunito", system-ui, -apple-system, sans-serif;
+  --wf-safe-area-top: env(safe-area-inset-top, 0px);
+  --wf-safe-area-right: env(safe-area-inset-right, 0px);
+  --wf-safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --wf-safe-area-left: env(safe-area-inset-left, 0px);
+  --wf-scrollbar-safe-gap: 12px;
+  --wf-mobile-header-height: 76px;
+  --wf-desktop-header-height: 88px;
+  --wf-desktop-chat-dock-width: 24rem;
+
+  --background: 0 0% 100%;
+  --foreground: 112 67% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 112 67% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 112 67% 12%;
+  --primary: 113 74% 69%;
+  --primary-foreground: 112 67% 12%;
+  --secondary: 113 78% 96%;
+  --secondary-foreground: 112 67% 12%;
+  --muted: 113 78% 96%;
+  --muted-foreground: 112 47% 22%;
+  --accent: 113 74% 69%;
+  --accent-foreground: 112 67% 12%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 113 74% 69%;
+  --radius: 1rem;
+}
+
+.dark {
+  --background: 210 22% 20%;
+  --foreground: 110 40% 95%;
+  --card: 210 22% 24%;
+  --card-foreground: 110 40% 95%;
+  --popover: 210 22% 20%;
+  --popover-foreground: 110 40% 95%;
+  --primary: 113 74% 69%;
+  --primary-foreground: 112 67% 12%;
+  --secondary: 210 22% 35%;
+  --secondary-foreground: 110 40% 95%;
+  --muted: 210 22% 30%;
+  --muted-foreground: 210 20% 75%;
+  --accent: 113 74% 69%;
+  --accent-foreground: 110 40% 95%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 210 22% 35%;
+  --input: 210 22% 35%;
+  --ring: 113 74% 69%;
+}
+
+@theme {
+  --font-sans: var(--font-nunito);
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --radius-xl: var(--radius);
+}
+
+/* Background Layers */
+.wf-app-static-background {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background-color: #eaf8e7;
+  background-image: 
+    linear-gradient(180deg, 
+      rgba(216, 232, 208, 0.72), 
+      rgba(216, 232, 208, 0.42) 14%, 
+      rgba(216, 232, 208, 0.14) 28%, 
+      rgba(216, 232, 208, 0) 40%, 
+      rgba(216, 232, 208, 0) 60%, 
+      rgba(216, 232, 208, 0.14) 72%, 
+      rgba(216, 232, 208, 0.42) 86%, 
+      rgba(216, 232, 208, 0.72)
+    ),
+    url('/images/background.avif');
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.dark .wf-app-static-background {
+  background-color: #17231c;
+  background-image: 
+    linear-gradient(180deg, 
+      rgba(15, 23, 19, 0.88), 
+      rgba(18, 29, 23, 0.72) 40%, 
+      rgba(15, 23, 19, 0.92)
+    ),
+    url('/images/background.avif');
+  filter: brightness(0.65) saturate(0.8);
+}
+
+/* Glassmorphism Cards */
+.glass-card {
+  transform: translateZ(0);
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid hsl(var(--border) / 0.5) !important;
+  box-shadow: 0 12px 36px 0 rgba(0, 0, 0, 0.08);
+}
+
+/* 3D Button Styles */
+.btn-wf-primary {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: linear-gradient(to bottom, rgba(255, 255, 255, 0.28) 0%, rgba(255, 255, 255, 0) 55%), hsl(var(--primary));
+  box-shadow: 0 5px 0 0 hsl(var(--primary) / 0.72), 0 14px 22px -18px hsl(var(--primary) / 0.55);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-wf-primary:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.03);
+}
+
+.btn-wf-primary:active {
+  transform: translateY(3px) scale(0.98);
+  box-shadow: 0 2px 0 0 hsl(var(--primary) / 0.72);
+}
+
+.btn-wf-silver {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: linear-gradient(180deg, #ffffff 0%, #f9fafb 50%, #f3f4f6 100%);
+  box-shadow: 0 5px 0 0 #ececec, 0 14px 22px -18px rgba(15, 23, 42, 0.14);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.dark .btn-wf-silver {
+  background: linear-gradient(180deg, #374151 0%, #1f2937 50%, #111827 100%);
+  box-shadow: 0 5px 0 0 #1f2937, 0 14px 22px -18px rgba(0, 0, 0, 0.5);
+  color: #f3f4f6;
+}
+
+.btn-wf-silver:hover {
+  transform: translateY(-2px);
+  filter: brightness(1.02);
+}
+
+.btn-wf-silver:active {
+  transform: translateY(3px) scale(0.98);
+  box-shadow: 0 2px 0 0 #ececec;
+}
+
+/* Facebook Group LED Rotating Border */
+@property --wf-fb-led-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.wf-fb-led {
+  position: relative;
+}
+
+.wf-fb-led::before {
+  content: "";
+  position: absolute;
+  inset: -2.5px;
+  border-radius: 9999px;
+  padding: 2.5px;
+  background: conic-gradient(
+    from var(--wf-fb-led-angle, 0deg),
+    transparent 0deg,
+    transparent 240deg,
+    rgba(24, 119, 242, 0.2) 270deg,
+    rgba(24, 119, 242, 0.6) 310deg,
+    rgba(66, 165, 245, 0.9) 330deg,
+    rgba(24, 119, 242, 0.6) 340deg,
+    rgba(24, 119, 242, 0.2) 350deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  animation: wf-fb-led-spin 1.8s linear infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Animations */
+@keyframes wf-fb-led-spin {
+  to {
+    --wf-fb-led-angle: 360deg;
+  }
+}
+
+@keyframes wf-badge-wiggle {
+  0%, 100% { transform: rotate(0deg) scale(1); }
+  25% { transform: rotate(-5deg) scale(1.05); }
+  75% { transform: rotate(5deg) scale(1.05); }
+}
+
+@keyframes wf-fb-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes wf-icon-bob-a {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-5px) rotate(2deg); }
+}
+
+@keyframes wf-home-logo-wobble {
+  0%, 100% { transform: translateY(0) rotate(0deg) scale(1); }
+  25% { transform: translateY(-4px) rotate(-1deg) scale(1.01); }
+  75% { transform: translateY(-2px) rotate(1deg) scale(1.01); }
+}
+
+.wf-home-logo-alive {
+  animation: wf-home-logo-wobble 4s ease-in-out infinite;
+  filter: drop-shadow(0 18px 28px rgba(108, 184, 102, 0.35));
+  transition: transform 0.2s ease;
+}
+
+.wf-home-logo-alive:hover {
+  transform: scale(1.04) rotate(-1deg);
+}
+
+/* Custom Scrollbars */
+.wordfight-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.wordfight-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.wordfight-scrollbar::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary) / 0.4);
+  border-radius: 9999px;
+}
+.wordfight-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.8);
+}
