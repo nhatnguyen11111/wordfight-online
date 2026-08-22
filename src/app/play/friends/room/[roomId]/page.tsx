@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, use } from "react";
 import Link from "next/link";
-import { ArrowLeft, Copy, Check, Users, Play, Send, Crown, AlertCircle, Trophy, MessageCircle, Sparkles, BookOpen, Clock } from "lucide-react";
+import { ArrowLeft, Copy, Check, Users, Play, Send, Crown, AlertCircle, Trophy, MessageCircle, Sparkles, BookOpen, Clock, Lock, LogIn } from "lucide-react";
 import { useGame } from "@/lib/game-context";
 import { sounds } from "@/lib/sound-effects";
 import { MultiplayerRoomService, MultiplayerGameState, RoomPlayer, ChatMessage } from "@/lib/multiplayer-room-service";
@@ -22,7 +22,7 @@ export default function RoomMultiplayerPage({
   const isCreator = resolvedSearchParams?.create === "true";
   const language = (resolvedSearchParams?.lang === "en" ? "en" : "vi") as "vi" | "en";
 
-  const { profile, addGems } = useGame();
+  const { profile, addGems, isLoggedIn, openModal } = useGame();
 
   const [copied, setCopied] = useState(false);
   const [gameState, setGameState] = useState<MultiplayerGameState>({
@@ -151,6 +151,38 @@ export default function RoomMultiplayerPage({
   const activePlayer = gameState.players[gameState.activePlayerIndex];
   const isMyTurn = activePlayer?.id === profile.id;
   const lastWord = gameState.wordChain[gameState.wordChain.length - 1];
+
+  if (!isLoggedIn) {
+    return (
+      <div className="relative min-h-[calc(100dvh-76px)] pt-24 pb-8 px-4 flex items-center justify-center">
+        <div className="glass-card max-w-md w-full p-8 rounded-[32px] bg-background/90 backdrop-blur-xl border border-primary/20 text-center space-y-5 shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 text-primary shadow-inner">
+            <Lock className="h-10 w-10" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black text-foreground">Yêu Cầu Đăng Nhập</h2>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Bạn cần đăng nhập tài khoản để vào phòng #{roomId} và tham gia thi đấu cùng bạn bè!
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => openModal("auth")}
+            className="btn-wf-primary w-full h-12 rounded-2xl font-black text-primary-foreground flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-95 transition-all text-sm"
+          >
+            <LogIn className="h-5 w-5" /> Đăng Nhập / Đăng Ký Ngay
+          </button>
+          <Link
+            href="/"
+            onClick={() => sounds.playClick()}
+            className="inline-block text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ← Quay lại trang chủ
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-[calc(100dvh-76px)] pt-20 md:pt-24 pb-8 px-4 sm:px-8 max-w-5xl mx-auto flex flex-col gap-4">

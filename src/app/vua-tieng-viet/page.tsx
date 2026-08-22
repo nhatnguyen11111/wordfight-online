@@ -2,13 +2,13 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { ArrowLeft, Crown, Play, Lock, Star, Sparkles, Shuffle, RotateCcw, Check, Gem, HelpCircle } from "lucide-react";
+import { ArrowLeft, Crown, Play, Lock, Star, Sparkles, Shuffle, RotateCcw, Check, Gem, HelpCircle, LogIn } from "lucide-react";
 import { useGame } from "@/lib/game-context";
 import { VUA_TIENG_VIET_LEVELS, VuaLevel } from "@/lib/dictionary/vua-tieng-viet-levels";
 import { sounds } from "@/lib/sound-effects";
 
 export default function VuaTiengVietPage() {
-  const { vuaLevels, completeVuaLevel } = useGame();
+  const { vuaLevels, completeVuaLevel, isLoggedIn, openModal } = useGame();
   const [activeLevel, setActiveLevel] = useState<VuaLevel | null>(null);
 
   // Puzzle state for active level
@@ -100,6 +100,38 @@ export default function VuaTiengVietPage() {
 
   // Find latest unlocked level
   const latestUnlockedId = Math.max(1, ...Object.keys(vuaLevels).map(Number));
+
+  if (!isLoggedIn) {
+    return (
+      <div className="relative min-h-[calc(100dvh-76px)] pt-24 pb-8 px-4 flex items-center justify-center">
+        <div className="glass-card max-w-md w-full p-8 rounded-[32px] bg-background/90 backdrop-blur-xl border border-primary/20 text-center space-y-5 shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-amber-500/10 text-amber-500 shadow-inner">
+            <Lock className="h-10 w-10" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black text-foreground">Yêu Cầu Đăng Nhập</h2>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Bạn cần đăng nhập tài khoản để tham gia thử thách Vua Tiếng Việt, chinh phục 30 Level và lưu điểm số!
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => openModal("auth")}
+            className="btn-wf-primary w-full h-12 rounded-2xl font-black text-primary-foreground flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-95 transition-all text-sm"
+          >
+            <LogIn className="h-5 w-5" /> Đăng Nhập / Đăng Ký Ngay
+          </button>
+          <Link
+            href="/"
+            onClick={() => sounds.playClick()}
+            className="inline-block text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ← Quay lại trang chủ
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-[calc(100dvh-76px)] pt-20 md:pt-24 pb-8 px-4 sm:px-8 max-w-6xl mx-auto flex flex-col gap-5">

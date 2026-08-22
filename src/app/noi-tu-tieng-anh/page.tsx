@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import Link from "next/link";
-import { ArrowLeft, Flag, Star, Gem, HelpCircle, Send, BookOpen, MessageSquare, Lock, Sparkles, RotateCcw, Trophy, AlertCircle, Lightbulb, Loader2 } from "lucide-react";
+import { ArrowLeft, Flag, Star, Gem, HelpCircle, Send, BookOpen, MessageSquare, Lock, Sparkles, RotateCcw, Trophy, AlertCircle, Lightbulb, Loader2, LogIn } from "lucide-react";
 import { useGame } from "@/lib/game-context";
 import { ENGLISH_CHAIN_LEVELS, WordChainLevel } from "@/lib/dictionary/word-chain-levels";
 import { GeminiAI } from "@/lib/gemini-ai";
@@ -17,7 +17,7 @@ interface ChainMessage {
 }
 
 export default function NoiTuTiengAnhPage() {
-  const { profile, enLevels, completeEnLevel } = useGame();
+  const { profile, enLevels, completeEnLevel, isLoggedIn, openModal } = useGame();
 
   const [activeLevel, setActiveLevel] = useState<WordChainLevel | null>(null);
   const [messages, setMessages] = useState<ChainMessage[]>([]);
@@ -208,6 +208,38 @@ export default function NoiTuTiengAnhPage() {
   const completedWords = messages.filter((m) => m.sender === "player").length;
   const targetWords = activeLevel?.targetWords || 3;
   const progressPercent = Math.min(100, Math.round((completedWords / targetWords) * 100));
+
+  if (!isLoggedIn) {
+    return (
+      <div className="relative min-h-[calc(100dvh-76px)] pt-24 pb-8 px-4 flex items-center justify-center">
+        <div className="glass-card max-w-md w-full p-8 rounded-[32px] bg-background/90 backdrop-blur-xl border border-primary/20 text-center space-y-5 shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 text-primary shadow-inner">
+            <Lock className="h-10 w-10" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black text-foreground">Login Required</h2>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Please sign in to your account to play English word chain levels, earn 💎 gems, and save your progress!
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => openModal("auth")}
+            className="btn-wf-primary w-full h-12 rounded-2xl font-black text-primary-foreground flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-95 transition-all text-sm"
+          >
+            <LogIn className="h-5 w-5" /> Sign In / Register Now
+          </button>
+          <Link
+            href="/"
+            onClick={() => sounds.playClick()}
+            className="inline-block text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ← Return to Home
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative min-h-[calc(100dvh-76px)] pt-18 md:pt-22 pb-8 px-4 sm:px-8 max-w-3xl mx-auto flex flex-col justify-between">

@@ -2,14 +2,15 @@
 
 import React from "react";
 import Image from "next/image";
-import Link from "next/link";
-import { Crown, Plus } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Crown, Plus, Lock } from "lucide-react";
 import { useGame } from "@/lib/game-context";
 import { FooterSEO } from "@/components/footer-seo";
 import { sounds } from "@/lib/sound-effects";
 
 export default function Home() {
-  const { vuaLevels, viLevels, enLevels, openModal } = useGame();
+  const { vuaLevels, viLevels, enLevels, isLoggedIn, openModal } = useGame();
+  const router = useRouter();
 
   // 1. Vua Tiếng Việt percentage (30 levels)
   const completedVuaCount = Object.values(vuaLevels || {}).filter((lvl) => lvl.completed).length;
@@ -22,6 +23,26 @@ export default function Home() {
   // 3. Nối từ Tiếng Anh percentage (10 levels)
   const completedEnCount = Object.values(enLevels || {}).filter((lvl) => lvl.completed).length;
   const enPercent = Math.min(100, Math.round((completedEnCount / 10) * 100));
+
+  const handleNavigate = (path: string) => {
+    if (!isLoggedIn) {
+      sounds.playWrong();
+      openModal("auth");
+      return;
+    }
+    sounds.playClick();
+    router.push(path);
+  };
+
+  const handleCreateRoom = () => {
+    if (!isLoggedIn) {
+      sounds.playWrong();
+      openModal("auth");
+      return;
+    }
+    sounds.playClick();
+    openModal("createRoom");
+  };
 
   return (
     <div className="relative flex min-h-[calc(100dvh-76px)] flex-col justify-between pt-20 md:pt-24 pb-8 px-4 sm:px-8">
@@ -46,11 +67,11 @@ export default function Home() {
         {/* Game Mode Cards Grid */}
         <div className="flex w-full max-w-[420px] xl:max-w-[500px] flex-col gap-3.5">
           {/* Card 1: Vua Tiếng Việt */}
-          <Link
-            href="/vua-tieng-viet"
-            onClick={() => sounds.playClick()}
+          <button
+            type="button"
+            onClick={() => handleNavigate("/vua-tieng-viet")}
             aria-label="Vua Tiếng Việt"
-            className="group relative w-full rounded-[28px] p-[1.8px] transition-transform duration-150 hover:scale-[1.02] active:scale-[0.97] border-[#efbb4b] bg-[linear-gradient(to_bottom,rgba(255,255,255,0.32)_0%,rgba(255,255,255,0.02)_55%),linear-gradient(135deg,#ffcf63_0%,#ffb347_55%,#ff8f3a_100%)] text-[#5b3200] shadow-[0_5px_0_0_rgba(217,124,18,0.78),0_14px_22px_-18px_rgba(245,158,11,0.65)]"
+            className="group relative w-full text-left rounded-[28px] p-[1.8px] transition-transform duration-150 hover:scale-[1.02] active:scale-[0.97] border-[#efbb4b] bg-[linear-gradient(to_bottom,rgba(255,255,255,0.32)_0%,rgba(255,255,255,0.02)_55%),linear-gradient(135deg,#ffcf63_0%,#ffb347_55%,#ff8f3a_100%)] text-[#5b3200] shadow-[0_5px_0_0_rgba(217,124,18,0.78),0_14px_22px_-18px_rgba(245,158,11,0.65)] cursor-pointer"
           >
             <div className="relative z-10 flex min-h-[66px] w-full items-center gap-3 overflow-hidden rounded-[26.5px] px-4 py-3 bg-[linear-gradient(180deg,rgba(255,249,236,0.95)_0%,rgba(255,241,205,0.88)_40%,rgba(255,233,186,0.6)_100%)]">
               {/* Crown icon badge */}
@@ -85,18 +106,18 @@ export default function Home() {
                 </div>
               </div>
             </div>
-          </Link>
+          </button>
 
           {/* Cards Row: Nối từ Tiếng Việt & Nối từ Tiếng Anh & Tạo Phòng */}
           <div className="grid grid-cols-1 sm:grid-cols-[1.4fr_1fr] gap-3.5">
             {/* Column with 2 word chain modes */}
             <div className="flex flex-col gap-3.5">
               {/* Card 2: Nối từ Tiếng Việt */}
-              <Link
-                href="/noi-tu-tieng-viet"
-                onClick={() => sounds.playClick()}
+              <button
+                type="button"
+                onClick={() => handleNavigate("/noi-tu-tieng-viet")}
                 aria-label="Nối từ Tiếng Việt"
-                className="group relative w-full rounded-[28px] p-[1.8px] transition-transform duration-150 hover:scale-[1.02] active:scale-[0.97] border-[#78c97d] bg-[linear-gradient(135deg,#a5e793_0%,#67cf64_100%)] shadow-[0_5px_0_0_hsl(var(--primary)/0.72),0_14px_22px_-18px_hsl(var(--primary)/0.55)]"
+                className="group relative w-full text-left rounded-[28px] p-[1.8px] transition-transform duration-150 hover:scale-[1.02] active:scale-[0.97] border-[#78c97d] bg-[linear-gradient(135deg,#a5e793_0%,#67cf64_100%)] shadow-[0_5px_0_0_hsl(var(--primary)/0.72),0_14px_22px_-18px_hsl(var(--primary)/0.55)] cursor-pointer"
               >
                 <div className="relative z-10 flex min-h-[64px] w-full items-center gap-3 overflow-hidden rounded-[26.5px] px-3.5 py-2.5 bg-[linear-gradient(180deg,rgba(255,255,255,0.94)_0%,rgba(249,255,249,0.85)_40%,rgba(244,255,244,0.6)_100%)]">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[18px] border border-[#78c97d] bg-white/90 text-[#173f21] shadow-sm">
@@ -129,14 +150,14 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-              </Link>
+              </button>
 
               {/* Card 3: Nối từ Tiếng Anh */}
-              <Link
-                href="/noi-tu-tieng-anh"
-                onClick={() => sounds.playClick()}
+              <button
+                type="button"
+                onClick={() => handleNavigate("/noi-tu-tieng-anh")}
                 aria-label="Nối từ Tiếng Anh"
-                className="group relative w-full rounded-[28px] p-[1.8px] transition-transform duration-150 hover:scale-[1.02] active:scale-[0.97] border-[#78c97d] bg-[linear-gradient(135deg,#a5e793_0%,#67cf64_100%)] shadow-[0_5px_0_0_hsl(var(--primary)/0.72),0_14px_22px_-18px_hsl(var(--primary)/0.55)]"
+                className="group relative w-full text-left rounded-[28px] p-[1.8px] transition-transform duration-150 hover:scale-[1.02] active:scale-[0.97] border-[#78c97d] bg-[linear-gradient(135deg,#a5e793_0%,#67cf64_100%)] shadow-[0_5px_0_0_hsl(var(--primary)/0.72),0_14px_22px_-18px_hsl(var(--primary)/0.55)] cursor-pointer"
               >
                 <div className="relative z-10 flex min-h-[64px] w-full items-center gap-3 overflow-hidden rounded-[26.5px] px-3.5 py-2.5 bg-[linear-gradient(180deg,rgba(255,255,255,0.94)_0%,rgba(249,255,249,0.85)_40%,rgba(244,255,244,0.6)_100%)]">
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[18px] border border-[#78c97d] bg-white/90 text-[#173f21] shadow-sm">
@@ -169,13 +190,13 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
-              </Link>
+              </button>
             </div>
 
             {/* Card 4: Tạo / Tìm phòng */}
             <button
               type="button"
-              onClick={() => openModal("createRoom")}
+              onClick={handleCreateRoom}
               aria-label="Tạo hoặc tìm phòng"
               className="btn-wf-silver group relative w-full rounded-[28px] p-4 flex flex-col items-center justify-center text-center transition-transform duration-150 hover:scale-[1.02] active:scale-[0.97] min-h-[140px] cursor-pointer"
             >

@@ -7,7 +7,7 @@ import { useGame } from "@/lib/game-context";
 import { sounds } from "@/lib/sound-effects";
 
 export function CreateRoomModal() {
-  const { activeModal, closeModal } = useGame();
+  const { activeModal, closeModal, isLoggedIn, openModal } = useGame();
   const router = useRouter();
   const [tab, setTab] = useState<"create" | "join">("create");
   const [roomCodeInput, setRoomCodeInput] = useState("");
@@ -16,6 +16,12 @@ export function CreateRoomModal() {
   if (activeModal !== "createRoom") return null;
 
   const handleCreate = () => {
+    if (!isLoggedIn) {
+      sounds.playWrong();
+      closeModal();
+      openModal("auth");
+      return;
+    }
     const randomCode = Math.floor(10000 + Math.random() * 90000).toString();
     sounds.playCorrect();
     closeModal();
@@ -24,6 +30,12 @@ export function CreateRoomModal() {
 
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isLoggedIn) {
+      sounds.playWrong();
+      closeModal();
+      openModal("auth");
+      return;
+    }
     const code = roomCodeInput.trim().toUpperCase();
     if (!code) {
       sounds.playWrong();
