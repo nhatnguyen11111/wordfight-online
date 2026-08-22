@@ -3,17 +3,17 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { User, MessageCircle, ShoppingBag, Settings } from "lucide-react";
+import { User, MessageCircle, ShoppingBag, Settings, LogIn, Sparkles } from "lucide-react";
 import { useGame } from "@/lib/game-context";
 
 export function Header() {
-  const { profile, openModal } = useGame();
+  const { profile, isLoggedIn, openModal } = useGame();
 
   return (
     <>
       {/* Desktop Header */}
       <header className="fixed inset-x-0 top-0 z-[120] hidden md:block">
-        <div className="pointer-events-auto border-b bg-background/30 backdrop-blur-md transition-[border-color,background-color] duration-200 border-primary/20">
+        <div className="pointer-events-auto border-b bg-background/40 backdrop-blur-md transition-[border-color,background-color] duration-200 border-primary/20">
           <div className="flex w-full items-center gap-6 px-6 lg:px-8 py-3 min-h-[76px]">
             {/* Left elements */}
             <div className="flex min-w-0 shrink-0 items-center gap-4">
@@ -33,20 +33,26 @@ export function Header() {
               {/* Profile button */}
               <button
                 type="button"
-                onClick={() => openModal("profile")}
-                className="flex min-w-0 items-center gap-3 rounded-full transition-transform duration-150 hover:scale-105 active:scale-[0.97] cursor-pointer text-left"
+                onClick={() => openModal(isLoggedIn ? "profile" : "auth")}
+                className="flex min-w-0 items-center gap-3 rounded-full transition-transform duration-150 hover:scale-105 active:scale-[0.97] cursor-pointer text-left group"
               >
                 <div
-                  className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-[2.5px] border-primary/70 bg-gradient-to-br from-white/30 to-transparent"
-                  style={{ backgroundColor: "hsl(var(--primary))" }}
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-[2.5px] border-primary/70 bg-gradient-to-br ${profile.avatarColor} text-white shadow-sm`}
                 >
-                  <User className="h-6 w-6 text-primary-foreground" />
+                  <span className="text-base font-black uppercase">{profile.nickname[0]}</span>
                 </div>
                 <div className="min-w-0">
-                  <p className="mb-0.5 text-[12px] font-semibold leading-none text-muted-foreground">
-                    Chào bạn!
-                  </p>
-                  <p className="max-w-[180px] truncate text-base font-bold leading-tight">
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <span className="text-[11px] font-semibold leading-none text-muted-foreground">
+                      {isLoggedIn ? "Đã đăng nhập" : "Khách chơi"}
+                    </span>
+                    {isLoggedIn ? (
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-emerald-500/20" />
+                    ) : (
+                      <span className="text-[10px] font-bold text-amber-500 uppercase">Đăng nhập</span>
+                    )}
+                  </div>
+                  <p className="max-w-[180px] truncate text-base font-bold leading-tight text-foreground">
                     {profile.nickname}
                   </p>
                 </div>
@@ -96,8 +102,19 @@ export function Header() {
               </button>
             </div>
 
-            {/* Right: Shop & Settings */}
-            <div className="flex shrink-0 items-center gap-2">
+            {/* Right: Auth / Shop & Settings */}
+            <div className="flex shrink-0 items-center gap-2.5">
+              {!isLoggedIn && (
+                <button
+                  type="button"
+                  onClick={() => openModal("auth")}
+                  className="btn-wf-primary h-11 px-4 rounded-full font-black text-xs text-primary-foreground flex items-center gap-1.5 shadow-sm cursor-pointer active:scale-95 transition-all"
+                >
+                  <LogIn className="h-4 w-4" />
+                  <span>Đăng Nhập</span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => openModal("shop")}
@@ -123,21 +140,20 @@ export function Header() {
       {/* Mobile Top Floating Bars */}
       <div className="relative z-30 flex shrink-0 items-start justify-between px-4 pb-2 pt-4 md:hidden">
         {/* Left Mobile: Profile & Leaderboard */}
-        <div className="flex flex-col items-start gap-4">
+        <div className="flex flex-col items-start gap-3">
           <button
             type="button"
-            onClick={() => openModal("profile")}
+            onClick={() => openModal(isLoggedIn ? "profile" : "auth")}
             className="flex cursor-pointer items-center gap-2.5 rounded-2xl transition-all active:scale-[0.97] text-left"
           >
             <div
-              className="flex h-[52px] w-[52px] shrink-0 items-center justify-center overflow-hidden rounded-full border-[2.5px] border-primary/70 shadow-sm"
-              style={{ backgroundColor: "hsl(var(--primary))" }}
+              className={`flex h-[48px] w-[48px] shrink-0 items-center justify-center overflow-hidden rounded-full border-[2.5px] border-primary/70 bg-gradient-to-br ${profile.avatarColor} text-white shadow-sm`}
             >
-              <User className="h-7 w-7 text-primary-foreground" />
+              <span className="text-base font-black uppercase">{profile.nickname[0]}</span>
             </div>
             <div className="min-w-0">
-              <p className="mb-0.5 text-[11px] font-semibold leading-none text-muted-foreground">
-                Chào bạn!
+              <p className="mb-0.5 text-[10px] font-bold leading-none text-muted-foreground">
+                {isLoggedIn ? "Tài khoản" : "Chạm để đăng nhập"}
               </p>
               <p className="max-w-[130px] truncate text-sm font-bold leading-tight">
                 {profile.nickname}
@@ -149,29 +165,40 @@ export function Header() {
             type="button"
             onClick={() => openModal("leaderboard")}
             aria-label="Xếp hạng"
-            className="flex w-[52px] cursor-pointer flex-col items-center gap-0.5 transition-transform duration-150 active:scale-[0.97]"
+            className="flex w-[48px] cursor-pointer flex-col items-center gap-0.5 transition-transform duration-150 active:scale-[0.97]"
           >
             <Image
               src="/images/icon-leaderboard.avif"
               alt="Xếp hạng"
-              width={38}
-              height={38}
-              className="h-9 w-9 object-contain drop-shadow-[0_0_6px_hsl(var(--primary)/0.7)] animate-[wf-icon-bob-a_3.5s_ease-in-out_infinite]"
+              width={36}
+              height={36}
+              className="h-8 w-8 object-contain drop-shadow-[0_0_6px_hsl(var(--primary)/0.7)]"
             />
-            <span className="text-[10px] font-extrabold text-primary leading-none">
+            <span className="text-[9px] font-extrabold text-primary leading-none">
               Xếp hạng
             </span>
           </button>
         </div>
 
-        {/* Right Mobile: Actions & Facebook Group Button */}
-        <div className="flex shrink-0 flex-col items-end gap-3">
+        {/* Right Mobile: Actions */}
+        <div className="flex shrink-0 flex-col items-end gap-2.5">
           <div className="flex items-center gap-2">
+            {!isLoggedIn && (
+              <button
+                type="button"
+                onClick={() => openModal("auth")}
+                className="btn-wf-primary h-9 px-3 rounded-full text-xs font-black text-primary-foreground flex items-center gap-1"
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                <span>Đăng nhập</span>
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => openModal("shop")}
               aria-label="Cửa hàng"
-              className="btn-wf-primary flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border-[2.5px] border-primary/70 text-primary-foreground active:scale-[0.97]"
+              className="btn-wf-primary flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border-[2.5px] border-primary/70 text-primary-foreground active:scale-[0.97]"
             >
               <ShoppingBag className="h-4 w-4" />
             </button>
@@ -180,33 +207,11 @@ export function Header() {
               type="button"
               onClick={() => openModal("settings")}
               aria-label="Cài đặt"
-              className="btn-wf-silver flex h-10 w-10 cursor-pointer items-center justify-center rounded-full border-[2.5px] border-[#ececec] text-gray-700 dark:text-gray-200 active:scale-[0.97]"
+              className="btn-wf-silver flex h-9 w-9 cursor-pointer items-center justify-center rounded-full border-[2.5px] border-[#ececec] text-gray-700 dark:text-gray-200 active:scale-[0.97]"
             >
               <Settings className="h-4 w-4" />
             </button>
           </div>
-
-          {/* Facebook Group LED button */}
-          <a
-            href="https://facebook.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="relative wf-fb-led flex cursor-pointer items-center gap-1.5 rounded-full border-[2.5px] border-white/40 bg-white/95 dark:bg-gray-900/90 py-1.5 pl-1.5 pr-3 backdrop-blur-xl shadow-md text-foreground transition-transform duration-150 active:scale-[0.97]"
-          >
-            <span className="absolute -top-2.5 right-2 rounded-full bg-gradient-to-r from-orange-500 to-red-500 px-2 py-0.5 text-[8px] font-extrabold leading-none text-white shadow-sm animate-[wf-badge-wiggle_2s_ease-in-out_infinite] whitespace-nowrap">
-              Vào nhóm ngay
-            </span>
-            <span className="animate-[wf-fb-bounce_1.8s_ease-in-out_infinite]">
-              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-                <rect width="24" height="24" rx="12" fill="#1877F2" />
-                <path fill="white" d="M16 8h-2c-.55 0-1 .45-1 1v2h3l-.5 3H13v7h-3v-7H8v-3h2V9a4 4 0 014-4h2v3z" />
-              </svg>
-            </span>
-            <div className="flex flex-col items-start text-left">
-              <span className="text-[10px] font-bold leading-none">Game Cũ - Đối Thủ Mới</span>
-              <span className="text-[8px] font-normal leading-tight text-muted-foreground">Hội nhóm Facebook</span>
-            </div>
-          </a>
         </div>
       </div>
     </>

@@ -134,14 +134,7 @@ export default function NoiTuTiengVietPage() {
         setCurrentTurn("player");
         setTimeLeft(level.timerSec);
 
-        const syllables = botRes.word.split(/\s+/);
-        SupabaseService.saveAiVocabulary({
-          language: "vi",
-          word: botRes.word,
-          first_syllable: syllables[0],
-          last_syllable: syllables[1] || "",
-          meaning: botRes.meaning,
-        });
+        SupabaseService.saveAiVocabulary("vi", botRes.word, botRes.meaning);
 
         setTimeout(() => inputRef.current?.focus(), 100);
       }
@@ -201,14 +194,7 @@ export default function NoiTuTiengVietPage() {
     const newHistory = [...messages, newMsg];
     setMessages(newHistory);
 
-    const syllables = evalResult.normalizedWord.split(/\s+/);
-    SupabaseService.saveAiVocabulary({
-      language: "vi",
-      word: evalResult.normalizedWord,
-      first_syllable: syllables[0],
-      last_syllable: syllables[1] || "",
-      meaning: evalResult.meaning || "",
-    });
+    SupabaseService.saveAiVocabulary("vi", evalResult.normalizedWord, evalResult.meaning || "Từ tiếng Việt hợp lệ");
 
     const playerWordsCount = newHistory.filter((m) => m.sender === "player").length;
     if (playerWordsCount >= activeLevel.targetWords) {

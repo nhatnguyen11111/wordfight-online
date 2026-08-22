@@ -1,11 +1,12 @@
 -- ==============================================================================
--- SUPABASE DATABASE SCHEMA FOR WORDFIGHT ONLINE
+-- SUPABASE DATABASE SCHEMA WITH USER AUTHENTICATION FOR WORDFIGHT ONLINE
 -- Chạy toàn bộ script này trong SQL Editor trên Supabase Dashboard
 -- ==============================================================================
 
--- 1. Bảng User Profiles
+-- 1. Bảng User Profiles liên kết với auth.users
 CREATE TABLE IF NOT EXISTS public.profiles (
   id TEXT PRIMARY KEY,
+  email TEXT,
   nickname TEXT NOT NULL DEFAULT 'Chiến Binh',
   avatar_color TEXT NOT NULL DEFAULT 'from-emerald-400 to-green-600',
   avatar_frame TEXT NOT NULL DEFAULT 'default',
@@ -54,10 +55,11 @@ CREATE TABLE IF NOT EXISTS public.rooms (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Indexes for performance
+-- Indexes for high performance
 CREATE INDEX IF NOT EXISTS idx_levels_progress_user ON public.levels_progress(user_id, game_mode);
 CREATE INDEX IF NOT EXISTS idx_ai_vocabulary_lookup ON public.ai_vocabulary(language, word);
 CREATE INDEX IF NOT EXISTS idx_ai_vocabulary_syl ON public.ai_vocabulary(language, first_syllable);
+CREATE INDEX IF NOT EXISTS idx_profiles_email ON public.profiles(email);
 
 -- Row Level Security (RLS) Policies
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
@@ -78,3 +80,27 @@ CREATE POLICY "Allow public insert ai_vocabulary" ON public.ai_vocabulary FOR IN
 
 CREATE POLICY "Allow public read rooms" ON public.rooms FOR SELECT USING (true);
 CREATE POLICY "Allow public insert/update rooms" ON public.rooms FOR ALL USING (true);
+
+-- Trigger: Tự động tạo bản ghi Profile khi người dùng đăng ký qua Supabase Auth
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, nickname, avatar_color, gems)
+  VALUES (
+    NEW.id::text,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data->>'nickname', 'Chiến Binh ' || floor(random() * 900 + 100)::text),
+    COALESCE(NEW.raw_user_meta_data->>'avatar_color', 'from-emerald-400 to-green-600'),
+    50
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    email = EXCLUDED.email,
+    nickname = COALESCE(EXCLUDED.nickname, profiles.nickname);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();

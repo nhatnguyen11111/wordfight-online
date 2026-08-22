@@ -1,19 +1,9 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { SupabaseService } from "./supabase";
+import { SupabaseService, UserProfile, supabase } from "./supabase";
 
-export interface UserProfile {
-  id: string;
-  nickname: string;
-  avatarColor: string;
-  avatarFrame: string;
-  gems: number;
-  level: number;
-  totalWins: number;
-  totalGames: number;
-  highestStreak: number;
-}
+export type { UserProfile };
 
 export interface LevelProgress {
   levelId: number;
@@ -24,18 +14,22 @@ export interface LevelProgress {
 
 interface GameContextType {
   profile: UserProfile;
+  isLoggedIn: boolean;
   setProfile: React.Dispatch<React.SetStateAction<UserProfile>>;
   updateNickname: (name: string) => void;
   updateAvatar: (color: string, frame?: string) => void;
   updateAvatarColor: (color: string) => void;
   updateAvatarFrame: (frame: string) => void;
   addGems: (amount: number) => void;
+  login: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
+  register: (email: string, pass: string, nickname: string, color: string) => Promise<{ success: boolean; error?: string }>;
+  logout: () => Promise<void>;
   vuaLevels: Record<number, LevelProgress>;
-  completeVuaLevel: (levelId: number, stars: number, score: number) => void;
+  completeVuaLevel: (levelId: number, stars?: number, score?: number) => void;
   viLevels: Record<number, LevelProgress>;
-  completeViLevel: (levelId: number, stars: number, score: number) => void;
+  completeViLevel: (levelId: number, stars?: number, score?: number) => void;
   enLevels: Record<number, LevelProgress>;
-  completeEnLevel: (levelId: number, stars: number, score: number) => void;
+  completeEnLevel: (levelId: number, stars?: number, score?: number) => void;
   activeModal: string | null;
   openModal: (modalName: string) => void;
   closeModal: () => void;
@@ -67,6 +61,7 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 
 export const GameProvider = ({ children }: { children: React.ReactNode }) => {
   const [profile, setProfile] = useState<UserProfile>(DEFAULT_PROFILE);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [vuaLevels, setVuaLevels] = useState<Record<number, LevelProgress>>(DEFAULT_LEVEL_PROGRESS);
   const [viLevels, setViLevels] = useState<Record<number, LevelProgress>>(DEFAULT_LEVEL_PROGRESS);
   const [enLevels, setEnLevels] = useState<Record<number, LevelProgress>>(DEFAULT_LEVEL_PROGRESS);
@@ -74,42 +69,106 @@ export const GameProvider = ({ children }: { children: React.ReactNode }) => {
   const [isSoundEnabled, setIsSoundEnabled] = useState<boolean>(true);
   const [isDarkMode, setIsDarkModeState] = useState<boolean>(false);
 
-  // Load from localStorage on mount
-  useEffect(() => {
+  // Load user profile & sync Supabase on auth state change
+  const loadUserData = async (userId: string, userEmail?: string) => {
     try {
-      const savedProfile = localStorage.getItem("wf_profile");
-      if (savedProfile) {
-        const parsed = JSON.parse(savedProfile);
-        setProfile(parsed);
-        SupabaseService.syncProfile({
-          id: parsed.id,
-          nickname: parsed.nickname,
-          avatar_color: parsed.avatarColor,
-          avatar_frame: parsed.avatarFrame,
-          gems: parsed.gems,
-          level: parsed.level,
-          total_wins: parsed.totalWins,
-          total_games: parsed.totalGames,
-          highest_streak: parsed.highestStreak,
-        });
+      const serverProfile = await SupabaseService.fetchProfile(userId);
+      if (serverProfile) {
+        setProfile(serverProfile);
+        setIsLoggedIn(true);
+        localStorage.setItem("wf_profile", JSON.stringify(serverProfile));
       } else {
-        const initial = {
+        // Create initial profile if not exists
+        const newProf: UserProfile = {
           ...DEFAULT_PROFILE,
-          id: "user_" + Math.random().toString(36).substring(2, 9),
+          id: userId,
+          email: userEmail,
           nickname: "Chiến Binh " + Math.floor(100 + Math.random() * 900),
         };
-        setProfile(initial);
-        localStorage.setItem("wf_profile", JSON.stringify(initial));
+        setProfile(newProf);
+        setIsLoggedIn(true);
+        await SupabaseService.upsertProfile(newProf);
+        localStorage.setItem("wf_profile", JSON.stringify(newProf));
       }
 
-      const savedVua = localStorage.getItem("wf_vua_levels");
-      if (savedVua) setVuaLevels(JSON.parse(savedVua));
+      // Fetch user's level progress from Supabase
+      const [viRows, enRows, vuaRows] = await Promise.all([
+        SupabaseService.fetchUserProgress(userId, "noi_tu_vi"),
+        SupabaseService.fetchUserProgress(userId, "noi_tu_en"),
+        SupabaseService.fetchUserProgress(userId, "vua_tieng_viet"),
+      ]);
 
-      const savedVi = localStorage.getItem("wf_vi_levels");
-      if (savedVi) setViLevels(JSON.parse(savedVi));
+      if (viRows && viRows.length > 0) {
+        const map: Record<number, LevelProgress> = { ...DEFAULT_LEVEL_PROGRESS };
+        viRows.forEach((r: any) => {
+          map[r.level_id] = { levelId: r.level_id, stars: r.stars, score: r.score, completed: r.completed };
+          if (!map[r.level_id + 1]) map[r.level_id + 1] = { levelId: r.level_id + 1, stars: 0, score: 0, completed: false };
+        });
+        setViLevels(map);
+      }
 
-      const savedEn = localStorage.getItem("wf_en_levels");
-      if (savedEn) setEnLevels(JSON.parse(savedEn));
+      if (enRows && enRows.length > 0) {
+        const map: Record<number, LevelProgress> = { ...DEFAULT_LEVEL_PROGRESS };
+        enRows.forEach((r: any) => {
+          map[r.level_id] = { levelId: r.level_id, stars: r.stars, score: r.score, completed: r.completed };
+          if (!map[r.level_id + 1]) map[r.level_id + 1] = { levelId: r.level_id + 1, stars: 0, score: 0, completed: false };
+        });
+        setEnLevels(map);
+      }
+
+      if (vuaRows && vuaRows.length > 0) {
+        const map: Record<number, LevelProgress> = { ...DEFAULT_LEVEL_PROGRESS };
+        vuaRows.forEach((r: any) => {
+          map[r.level_id] = { levelId: r.level_id, stars: r.stars, score: r.score, completed: r.completed };
+          if (!map[r.level_id + 1]) map[r.level_id + 1] = { levelId: r.level_id + 1, stars: 0, score: 0, completed: false };
+        });
+        setVuaLevels(map);
+      }
+    } catch (err) {
+      console.warn("[GameContext] Error loading user data:", err);
+    }
+  };
+
+  useEffect(() => {
+    try {
+      // Check active Supabase session on mount
+      SupabaseService.getCurrentSession().then((session) => {
+        if (session?.user) {
+          loadUserData(session.user.id, session.user.email);
+        } else {
+          // Check local guest profile
+          const saved = localStorage.getItem("wf_profile");
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            setProfile(parsed);
+            if (parsed.email) setIsLoggedIn(true);
+          } else {
+            const initial = {
+              ...DEFAULT_PROFILE,
+              id: "user_" + Math.random().toString(36).substring(2, 9),
+              nickname: "Chiến Binh " + Math.floor(100 + Math.random() * 900),
+            };
+            setProfile(initial);
+            localStorage.setItem("wf_profile", JSON.stringify(initial));
+          }
+        }
+      });
+
+      // Listen for auth state changes
+      const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (session?.user) {
+          await loadUserData(session.user.id, session.user.email);
+        } else if (event === "SIGNED_OUT") {
+          setIsLoggedIn(false);
+          const guest: UserProfile = {
+            ...DEFAULT_PROFILE,
+            id: "user_" + Math.random().toString(36).substring(2, 9),
+            nickname: "Khách " + Math.floor(100 + Math.random() * 900),
+          };
+          setProfile(guest);
+          localStorage.setItem("wf_profile", JSON.stringify(guest));
+        }
+      });
 
       const soundPref = localStorage.getItem("wf_sound");
       if (soundPref !== null) setIsSoundEnabled(soundPref === "true");
@@ -119,26 +178,56 @@ export const GameProvider = ({ children }: { children: React.ReactNode }) => {
         setIsDarkModeState(true);
         document.documentElement.classList.add("dark");
       }
+
+      return () => {
+        authListener?.subscription.unsubscribe();
+      };
     } catch (e) {
-      console.warn("Storage load error:", e);
+      console.warn("Init error:", e);
     }
   }, []);
+
+  const login = async (email: string, pass: string) => {
+    const { data, error } = await SupabaseService.signIn(email, pass);
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    if (data?.user) {
+      await loadUserData(data.user.id, data.user.email);
+      return { success: true };
+    }
+    return { success: false, error: "Đăng nhập thất bại" };
+  };
+
+  const register = async (email: string, pass: string, nickname: string, color: string) => {
+    const { data, error } = await SupabaseService.signUp(email, pass, nickname, color);
+    if (error) {
+      return { success: false, error: error.message };
+    }
+    if (data?.user) {
+      await loadUserData(data.user.id, data.user.email);
+      return { success: true };
+    }
+    return { success: true };
+  };
+
+  const logout = async () => {
+    await SupabaseService.signOut();
+    setIsLoggedIn(false);
+    const guest: UserProfile = {
+      ...DEFAULT_PROFILE,
+      id: "user_" + Math.random().toString(36).substring(2, 9),
+      nickname: "Khách " + Math.floor(100 + Math.random() * 900),
+    };
+    setProfile(guest);
+    localStorage.setItem("wf_profile", JSON.stringify(guest));
+  };
 
   const updateNickname = (nickname: string) => {
     setProfile((prev) => {
       const updated = { ...prev, nickname };
       localStorage.setItem("wf_profile", JSON.stringify(updated));
-      SupabaseService.syncProfile({
-        id: updated.id,
-        nickname: updated.nickname,
-        avatar_color: updated.avatarColor,
-        avatar_frame: updated.avatarFrame,
-        gems: updated.gems,
-        level: updated.level,
-        total_wins: updated.totalWins,
-        total_games: updated.totalGames,
-        highest_streak: updated.highestStreak,
-      });
+      SupabaseService.upsertProfile(updated);
       return updated;
     });
   };
@@ -147,6 +236,7 @@ export const GameProvider = ({ children }: { children: React.ReactNode }) => {
     setProfile((prev) => {
       const updated = { ...prev, avatarColor, avatarFrame };
       localStorage.setItem("wf_profile", JSON.stringify(updated));
+      SupabaseService.upsertProfile(updated);
       return updated;
     });
   };
@@ -155,6 +245,7 @@ export const GameProvider = ({ children }: { children: React.ReactNode }) => {
     setProfile((prev) => {
       const updated = { ...prev, avatarColor };
       localStorage.setItem("wf_profile", JSON.stringify(updated));
+      SupabaseService.upsertProfile(updated);
       return updated;
     });
   };
@@ -163,6 +254,7 @@ export const GameProvider = ({ children }: { children: React.ReactNode }) => {
     setProfile((prev) => {
       const updated = { ...prev, avatarFrame };
       localStorage.setItem("wf_profile", JSON.stringify(updated));
+      SupabaseService.upsertProfile(updated);
       return updated;
     });
   };
@@ -171,11 +263,12 @@ export const GameProvider = ({ children }: { children: React.ReactNode }) => {
     setProfile((prev) => {
       const updated = { ...prev, gems: Math.max(0, prev.gems + amount) };
       localStorage.setItem("wf_profile", JSON.stringify(updated));
+      SupabaseService.upsertProfile(updated);
       return updated;
     });
   };
 
-  const completeVuaLevel = (levelId: number, stars: number, score: number) => {
+  const completeVuaLevel = (levelId: number, stars = 3, score = 100) => {
     setVuaLevels((prev) => {
       const updated = {
         ...prev,
@@ -183,20 +276,13 @@ export const GameProvider = ({ children }: { children: React.ReactNode }) => {
         [levelId + 1]: prev[levelId + 1] || { levelId: levelId + 1, stars: 0, score: 0, completed: false },
       };
       localStorage.setItem("wf_vua_levels", JSON.stringify(updated));
-      SupabaseService.saveLevelProgress({
-        user_id: profile.id,
-        game_mode: "vua_tieng_viet",
-        level_id: levelId,
-        stars,
-        score,
-        completed: true,
-      });
+      SupabaseService.saveLevelProgress(profile.id, "vua_tieng_viet", levelId, stars, score);
       return updated;
     });
     addGems(5);
   };
 
-  const completeViLevel = (levelId: number, stars: number, score: number) => {
+  const completeViLevel = (levelId: number, stars = 3, score = 100) => {
     setViLevels((prev) => {
       const updated = {
         ...prev,
@@ -204,20 +290,13 @@ export const GameProvider = ({ children }: { children: React.ReactNode }) => {
         [levelId + 1]: prev[levelId + 1] || { levelId: levelId + 1, stars: 0, score: 0, completed: false },
       };
       localStorage.setItem("wf_vi_levels", JSON.stringify(updated));
-      SupabaseService.saveLevelProgress({
-        user_id: profile.id,
-        game_mode: "noi_tu_vi",
-        level_id: levelId,
-        stars,
-        score,
-        completed: true,
-      });
+      SupabaseService.saveLevelProgress(profile.id, "noi_tu_vi", levelId, stars, score);
       return updated;
     });
     addGems(6);
   };
 
-  const completeEnLevel = (levelId: number, stars: number, score: number) => {
+  const completeEnLevel = (levelId: number, stars = 3, score = 100) => {
     setEnLevels((prev) => {
       const updated = {
         ...prev,
@@ -225,14 +304,7 @@ export const GameProvider = ({ children }: { children: React.ReactNode }) => {
         [levelId + 1]: prev[levelId + 1] || { levelId: levelId + 1, stars: 0, score: 0, completed: false },
       };
       localStorage.setItem("wf_en_levels", JSON.stringify(updated));
-      SupabaseService.saveLevelProgress({
-        user_id: profile.id,
-        game_mode: "noi_tu_en",
-        level_id: levelId,
-        stars,
-        score,
-        completed: true,
-      });
+      SupabaseService.saveLevelProgress(profile.id, "noi_tu_en", levelId, stars, score);
       return updated;
     });
     addGems(6);
@@ -268,12 +340,16 @@ export const GameProvider = ({ children }: { children: React.ReactNode }) => {
     <GameContext.Provider
       value={{
         profile,
+        isLoggedIn,
         setProfile,
         updateNickname,
         updateAvatar,
         updateAvatarColor,
         updateAvatarFrame,
         addGems,
+        login,
+        register,
+        logout,
         vuaLevels,
         completeVuaLevel,
         viLevels,

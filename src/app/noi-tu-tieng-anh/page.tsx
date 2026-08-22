@@ -130,13 +130,7 @@ export default function NoiTuTiengAnhPage() {
         setCurrentTurn("player");
         setTimeLeft(level.timerSec);
 
-        SupabaseService.saveAiVocabulary({
-          language: "en",
-          word: botRes.word,
-          first_syllable: botRes.word[0],
-          last_syllable: botRes.word.slice(-1),
-          meaning: botRes.meaning,
-        });
+        SupabaseService.saveAiVocabulary("en", botRes.word, botRes.meaning);
 
         setTimeout(() => inputRef.current?.focus(), 100);
       }
@@ -191,13 +185,7 @@ export default function NoiTuTiengAnhPage() {
     const newHistory = [...messages, newMsg];
     setMessages(newHistory);
 
-    SupabaseService.saveAiVocabulary({
-      language: "en",
-      word: evalResult.normalizedWord,
-      first_syllable: evalResult.normalizedWord[0],
-      last_syllable: evalResult.normalizedWord.slice(-1),
-      meaning: evalResult.meaning || "",
-    });
+    SupabaseService.saveAiVocabulary("en", evalResult.normalizedWord, evalResult.meaning || "Valid English word");
 
     const playerWordsCount = newHistory.filter((m) => m.sender === "player").length;
     if (playerWordsCount >= activeLevel.targetWords) {
