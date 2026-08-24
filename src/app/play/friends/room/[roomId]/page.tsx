@@ -130,6 +130,20 @@ export default function RoomMultiplayerPage({
     };
   }, [roomId, isCreator]);
 
+  // Active Room Heartbeat (Pings every 4 seconds to prove room is actively occupied)
+  useEffect(() => {
+    if (roomNotFound) return;
+
+    RoomRegistry.heartbeat(roomId);
+    const heartbeatInterval = setInterval(() => {
+      RoomRegistry.heartbeat(roomId);
+    }, 4000);
+
+    return () => {
+      clearInterval(heartbeatInterval);
+    };
+  }, [roomId, roomNotFound]);
+
   // Initialize Multiplayer Service
   useEffect(() => {
     if (roomNotFound) return;
@@ -335,7 +349,7 @@ export default function RoomMultiplayerPage({
   };
 
   useEffect(() => {
-    const handleBeforeUnload = () => {
+    const handleCleanLeave = () => {
       if (gameState.players.length <= 1) {
         RoomRegistry.unregisterRoom(roomId);
       } else {
@@ -350,9 +364,14 @@ export default function RoomMultiplayerPage({
         }
       }
     };
-    window.addEventListener("beforeunload", handleBeforeUnload);
+
+    window.addEventListener("beforeunload", handleCleanLeave);
+    window.addEventListener("pagehide", handleCleanLeave);
+
     return () => {
-      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("beforeunload", handleCleanLeave);
+      window.removeEventListener("pagehide", handleCleanLeave);
+      handleCleanLeave();
     };
   }, [roomId, gameState.players, profile.id]);
 

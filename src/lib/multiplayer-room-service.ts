@@ -620,6 +620,9 @@ export class MultiplayerRoomService {
   }
 
   public disconnect() {
+    if (this.state.players.length <= 1) {
+      RoomRegistry.unregisterRoom(this.roomId);
+    }
     if (this.channel) {
       this.channel.unsubscribe();
       this.channel = null;
