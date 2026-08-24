@@ -58,7 +58,7 @@ export const RoomRegistry = {
         await supabase.from("rooms").upsert({
           id: room.id,
           code: room.id,
-          host_id: room.hostId,
+          host_id: null,
           language: room.language,
           status: room.status,
         });
@@ -67,8 +67,8 @@ export const RoomRegistry = {
       }
     }
 
-    // Broadcast room update to all lobby listeners
-    this.broadcastLobbyUpdate();
+    // Broadcast room update to all lobby listeners with full payload
+    this.broadcastLobbyUpdate(room);
     return true;
   },
 
@@ -230,8 +230,13 @@ export const RoomRegistry = {
    * Subscribe to real-time room list updates
    */
   subscribeToRooms(onRoomsUpdate: (rooms: RoomInfo[]) => void) {
-    if (!isSupabaseConfigured()) {
+    const fetchAndNotify = () => {
       this.listActiveRooms().then(onRoomsUpdate);
+    };
+
+    fetchAndNotify();
+
+    if (!isSupabaseConfigured()) {
       return () => {};
     }
 
@@ -240,25 +245,33 @@ export const RoomRegistry = {
       lobbyChannel.subscribe();
     }
 
-    const handler = () => {
-      this.listActiveRooms().then(onRoomsUpdate);
+    const handler = ({ payload }: any) => {
+      if (payload?.room?.id) {
+        memoryRooms.set(payload.room.id, payload.room);
+        if (typeof window !== "undefined") {
+          try {
+            const stored = JSON.parse(localStorage.getItem("wf_active_rooms") || "{}");
+            stored[payload.room.id] = payload.room;
+            localStorage.setItem("wf_active_rooms", JSON.stringify(stored));
+          } catch {}
+        }
+      }
+      fetchAndNotify();
     };
 
     lobbyChannel.on("broadcast", { event: "rooms_updated" }, handler);
-    // Initial fetch
-    this.listActiveRooms().then(onRoomsUpdate);
 
     return () => {
       // Unsubscribe listener
     };
   },
 
-  broadcastLobbyUpdate() {
+  broadcastLobbyUpdate(room?: RoomInfo) {
     if (lobbyChannel) {
       lobbyChannel.send({
         type: "broadcast",
         event: "rooms_updated",
-        payload: { timestamp: Date.now() },
+        payload: { room, timestamp: Date.now() },
       });
     }
   },

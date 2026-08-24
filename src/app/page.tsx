@@ -7,11 +7,22 @@ import { Crown, Plus, Lock, Sparkles, Swords, Zap } from "lucide-react";
 import { useGame } from "@/lib/game-context";
 import { FooterSEO } from "@/components/footer-seo";
 import { sounds } from "@/lib/sound-effects";
+import { RoomRegistry, RoomInfo, ROOM_COLOR_THEMES } from "@/lib/room-registry";
 import { BrandLogo } from "@/components/brand-logo";
 
 export default function Home() {
   const { vuaLevels, viLevels, enLevels, isLoggedIn, openModal } = useGame();
   const router = useRouter();
+  const [activeRooms, setActiveRooms] = React.useState<RoomInfo[]>([]);
+
+  React.useEffect(() => {
+    const unsub = RoomRegistry.subscribeToRooms((rooms) => {
+      setActiveRooms(rooms);
+    });
+    return () => {
+      unsub();
+    };
+  }, []);
 
   // 1. Vua Tiếng Việt percentage (30 levels)
   const completedVuaCount = Object.values(vuaLevels || {}).filter((lvl) => lvl.completed).length;
@@ -215,6 +226,75 @@ export default function Home() {
           </div>
         </div>
       </div>
+
+      {/* LIVE ACTIVE ROOMS SECTION ON DASHBOARD */}
+      {activeRooms.length > 0 && (
+        <div className="mx-auto w-full max-w-[1400px] mt-10 mb-4 p-5 sm:p-6 rounded-[32px] glass-card bg-background/80 backdrop-blur-xl border border-primary/20 shadow-xl">
+          <div className="flex items-center justify-between pb-4 border-b border-border/50">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-500">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-base sm:text-lg font-black text-foreground">
+                  Phòng Đấu Trực Tuyến Đang Mở ({activeRooms.length})
+                </h2>
+                <p className="text-xs text-muted-foreground">Tham gia ngay hoặc tạo phòng riêng cùng bạn bè</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={handleCreateRoom}
+              className="btn-wf-primary h-9 px-4 rounded-xl text-xs font-black text-primary-foreground flex items-center gap-1.5 cursor-pointer shadow-sm active:scale-95"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Tạo Phòng</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5 mt-4">
+            {activeRooms.map((room) => {
+              const theme = ROOM_COLOR_THEMES.find((t) => t.id === room.themeColor) || ROOM_COLOR_THEMES[0];
+              return (
+                <div
+                  key={room.id}
+                  className={`p-4 rounded-2xl border-2 bg-gradient-to-br ${theme.bg} ${theme.border} flex flex-col justify-between transition-all hover:scale-[1.02] shadow-sm`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${theme.badge}`}>
+                        #{room.id}
+                      </span>
+                      <span className="text-[10px] font-bold text-muted-foreground">
+                        {room.language === "vi" ? "🇻🇳 Tiếng Việt" : "🇬🇧 Tiếng Anh"}
+                      </span>
+                    </div>
+                    <h3 className="font-black text-sm text-foreground truncate">{room.name}</h3>
+                    <p className="text-xs text-muted-foreground mt-1 truncate">Chủ phòng: {room.hostNickname}</p>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-3 mt-3 border-t border-border/40">
+                    <span className="text-[11px] font-bold text-muted-foreground">{room.playerCount}/2 người</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!isLoggedIn) {
+                          openModal("auth");
+                          return;
+                        }
+                        openModal("createRoom");
+                      }}
+                      className="btn-wf-primary h-7 px-3 rounded-lg text-xs font-black text-primary-foreground cursor-pointer active:scale-95"
+                    >
+                      Vào Đấu
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* SEO Section at bottom */}
       <FooterSEO />

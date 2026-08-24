@@ -71,7 +71,49 @@ function normalizeAuthIdentifier(identifier: string): { email: string; raw: stri
   return { email: `${safeName || "user"}_${Math.floor(Date.now() / 1000)}@noichu.online`, raw: clean };
 }
 
-// Local accounts database for 100% resilient instant fallback
+// Profile Metadata Encoder to guarantee 100% Supabase DB compatibility
+interface EncodedProfileMeta {
+  frame: string;
+  email?: string;
+  role?: "admin" | "user";
+  isBanned?: boolean;
+  pwHash?: string;
+}
+
+function encodeAvatarFrame(meta: EncodedProfileMeta): string {
+  try {
+    return JSON.stringify({
+      f: meta.frame || "default",
+      e: meta.email || "",
+      r: meta.role || "user",
+      b: meta.isBanned || false,
+      p: meta.pwHash || "",
+    });
+  } catch {
+    return meta.frame || "default";
+  }
+}
+
+function decodeAvatarFrame(rawFrame?: string | null): EncodedProfileMeta {
+  if (!rawFrame) return { frame: "default", role: "user", isBanned: false };
+  if (rawFrame.startsWith("{") && rawFrame.endsWith("}")) {
+    try {
+      const parsed = JSON.parse(rawFrame);
+      return {
+        frame: parsed.f || "default",
+        email: parsed.e || undefined,
+        role: parsed.r === "admin" ? "admin" : "user",
+        isBanned: !!parsed.b,
+        pwHash: parsed.p || undefined,
+      };
+    } catch {
+      return { frame: rawFrame, role: "user", isBanned: false };
+    }
+  }
+  return { frame: rawFrame, role: "user", isBanned: false };
+}
+
+// Local accounts database for instant cross-tab & offline resilience
 function getStoredAccounts(): Record<string, any> {
   if (typeof window === "undefined") return {};
   try {
@@ -102,30 +144,34 @@ export const SupabaseService = {
       const pwHash = await hashPassword(password);
       const cleanNick = nickname.trim() || raw;
       const isAdminAccount = formattedEmail.toLowerCase() === "admin@gmail.com" || raw.toLowerCase() === "admin@gmail.com";
+      const userRole = isAdminAccount ? "admin" : "user";
+      const initialGems = isAdminAccount ? 999999 : 50;
+      const initialLevel = isAdminAccount ? 99 : 1;
 
-      // 1. Check if profile with same nickname or email already exists in DB or Local DB
-      const localDb = getStoredAccounts();
-      if (localDb[formattedEmail.toLowerCase()] || localDb[cleanNick.toLowerCase()]) {
-        return {
-          data: null,
-          error: { message: "Tài khoản hoặc Nickname này đã tồn tại. Vui lòng chuyển sang Đăng Nhập!" },
-        };
-      }
-
+      // 1. Check if profile with same nickname or ID exists in Supabase
       if (isSupabaseConfigured()) {
         try {
-          const { data: existing } = await supabase
+          const { data: existingRows } = await supabase
             .from("profiles")
-            .select("id, nickname, email")
-            .or(`nickname.ilike.${cleanNick},email.eq.${formattedEmail},email.eq.${raw}`)
-            .limit(1)
-            .maybeSingle();
+            .select("id, nickname, avatar_frame")
+            .limit(100);
 
-          if (existing) {
-            return {
-              data: null,
-              error: { message: "Tài khoản hoặc Nickname này đã tồn tại. Vui lòng chuyển sang Đăng Nhập!" },
-            };
+          if (existingRows) {
+            const found = existingRows.find((r: any) => {
+              const meta = decodeAvatarFrame(r.avatar_frame);
+              return (
+                r.nickname?.toLowerCase() === cleanNick.toLowerCase() ||
+                meta.email?.toLowerCase() === formattedEmail.toLowerCase() ||
+                r.id === `acc_${cleanNick.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`
+              );
+            });
+
+            if (found) {
+              return {
+                data: null,
+                error: { message: "Tài khoản hoặc Nickname này đã tồn tại. Vui lòng chuyển sang Đăng Nhập!" },
+              };
+            }
           }
         } catch (checkErr) {
           console.warn("[Supabase] Check existing warning:", checkErr);
@@ -133,70 +179,65 @@ export const SupabaseService = {
       }
 
       // 2. Generate unique User ID
-      let userId = "usr_" + Date.now() + "_" + Math.random().toString(36).substring(2, 8);
-      let authUserEmail = formattedEmail;
+      const safeId = "acc_" + cleanNick.toLowerCase().replace(/[^a-z0-9_]/g, "_") + "_" + Date.now().toString(36);
+      const encodedFrame = encodeAvatarFrame({
+        frame: "default",
+        email: formattedEmail,
+        role: userRole,
+        isBanned: false,
+        pwHash,
+      });
 
-      // 3. Try standard Supabase Auth
-      if (isSupabaseConfigured()) {
-        try {
-          const { data: authData } = await supabase.auth.signUp({
-            email: formattedEmail,
-            password,
-            options: {
-              data: {
-                nickname: cleanNick,
-                avatar_color: avatarColor,
-              },
-            },
-          });
-          if (authData?.user) {
-            userId = authData.user.id;
-            authUserEmail = authData.user.email || formattedEmail;
-          }
-        } catch (authEx) {
-          console.info("[Supabase Auth] Fallback to direct DB account:", authEx);
-        }
-      }
-
-      // 4. Save profile in Supabase & Local Accounts DB
-      const profileData: any = {
-        id: userId,
-        email: authUserEmail,
+      // 3. Save profile in Supabase Database (strictly using valid columns)
+      const profileRow: any = {
+        id: safeId,
         nickname: cleanNick,
         avatar_color: avatarColor,
-        avatar_frame: "default",
-        gems: isAdminAccount ? 999999 : 50,
-        level: isAdminAccount ? 99 : 1,
+        avatar_frame: encodedFrame,
+        gems: initialGems,
+        level: initialLevel,
         total_wins: 0,
         total_games: 0,
         highest_streak: 0,
-        role: isAdminAccount ? "admin" : "user",
-        password_hash: pwHash,
         updated_at: new Date().toISOString(),
       };
 
       if (isSupabaseConfigured()) {
         try {
-          await supabase.from("profiles").upsert(profileData);
+          const { error: upsertErr } = await supabase.from("profiles").upsert(profileRow);
+          if (upsertErr) {
+            console.warn("[Supabase] Profile upsert error:", upsertErr.message);
+          }
         } catch (dbErr) {
           console.warn("[Supabase] Profile upsert warning:", dbErr);
         }
       }
 
-      // Save in Local DB & active session
-      saveStoredAccount({ ...profileData, passwordHash: pwHash });
+      // 4. Save in Local DB & active session
+      saveStoredAccount({
+        id: safeId,
+        email: formattedEmail,
+        nickname: cleanNick,
+        avatarColor,
+        avatarFrame: "default",
+        gems: initialGems,
+        level: initialLevel,
+        role: userRole,
+        passwordHash: pwHash,
+      });
+
       if (typeof window !== "undefined") {
         localStorage.setItem(
           "wf_auth_session",
-          JSON.stringify({ userId, email: authUserEmail, nickname: cleanNick })
+          JSON.stringify({ userId: safeId, email: formattedEmail, nickname: cleanNick })
         );
       }
 
       return {
         data: {
           user: {
-            id: userId,
-            email: authUserEmail,
+            id: safeId,
+            email: formattedEmail,
           },
         },
         error: null,
@@ -212,49 +253,61 @@ export const SupabaseService = {
       const pwHash = await hashPassword(password);
       const isAdminAccount = cleanIdent === "admin@gmail.com";
 
-      // 1. Special Admin Account Handler
+      // 1. Special Master Admin Login Handler
       if (isAdminAccount) {
-        // If admin logs in with password, create or verify admin account
-        const localAccounts = getStoredAccounts();
-        const existingAdmin = localAccounts["admin@gmail.com"];
-
-        const adminUserId = existingAdmin?.id || "usr_admin_master";
-        const adminProfileData: any = {
-          id: adminUserId,
+        const adminId = "acc_admin_gmail_com";
+        const encodedAdminFrame = encodeAvatarFrame({
+          frame: "frame_gold",
           email: "admin@gmail.com",
+          role: "admin",
+          isBanned: false,
+          pwHash,
+        });
+
+        const adminProfile: any = {
+          id: adminId,
           nickname: "Quản Trị Viên (Admin)",
           avatar_color: "from-amber-400 to-yellow-600",
-          avatar_frame: "frame_gold",
+          avatar_frame: encodedAdminFrame,
           gems: 999999,
           level: 99,
           total_wins: 999,
           total_games: 1000,
           highest_streak: 50,
-          role: "admin",
-          password_hash: pwHash,
           updated_at: new Date().toISOString(),
         };
 
-        saveStoredAccount({ ...adminProfileData, passwordHash: pwHash });
-        if (typeof window !== "undefined") {
-          localStorage.setItem(
-            "wf_auth_session",
-            JSON.stringify({ userId: adminUserId, email: "admin@gmail.com", nickname: "Quản Trị Viên (Admin)" })
-          );
-        }
-
         if (isSupabaseConfigured()) {
           try {
-            await supabase.from("profiles").upsert(adminProfileData);
+            await supabase.from("profiles").upsert(adminProfile);
           } catch (e) {
             console.warn("Admin upsert warning:", e);
           }
         }
 
+        saveStoredAccount({
+          id: adminId,
+          email: "admin@gmail.com",
+          nickname: "Quản Trị Viên (Admin)",
+          avatarColor: "from-amber-400 to-yellow-600",
+          avatarFrame: "frame_gold",
+          gems: 999999,
+          level: 99,
+          role: "admin",
+          passwordHash: pwHash,
+        });
+
+        if (typeof window !== "undefined") {
+          localStorage.setItem(
+            "wf_auth_session",
+            JSON.stringify({ userId: adminId, email: "admin@gmail.com", nickname: "Quản Trị Viên (Admin)" })
+          );
+        }
+
         return {
           data: {
             user: {
-              id: adminUserId,
+              id: adminId,
               email: "admin@gmail.com",
             },
           },
@@ -262,38 +315,44 @@ export const SupabaseService = {
         };
       }
 
-      // 2. Check profiles database for matching email, nickname, or username
-      let matchedProfile: any = null;
+      // 2. Query Supabase for all profiles to match nickname, ID, or encoded email
+      let matchedData: any = null;
+      let matchedMeta: EncodedProfileMeta | null = null;
+
       if (isSupabaseConfigured()) {
         try {
-          const { data: profData } = await supabase
-            .from("profiles")
-            .select("*")
-            .or(`email.ilike.${cleanIdent},nickname.ilike.${cleanIdent},id.eq.${cleanIdent}`)
-            .limit(1)
-            .maybeSingle();
-
-          if (profData) {
-            matchedProfile = profData;
+          const { data: rows } = await supabase.from("profiles").select("*").limit(200);
+          if (rows) {
+            for (const r of rows) {
+              const meta = decodeAvatarFrame(r.avatar_frame);
+              if (
+                r.id.toLowerCase() === cleanIdent ||
+                r.id.toLowerCase() === `acc_${cleanIdent.replace(/[^a-z0-9_]/g, "_")}` ||
+                r.nickname?.toLowerCase() === cleanIdent ||
+                meta.email?.toLowerCase() === cleanIdent
+              ) {
+                matchedData = r;
+                matchedMeta = meta;
+                break;
+              }
+            }
           }
-        } catch (dbErr) {
-          console.warn("[Supabase] Profile lookup warning:", dbErr);
+        } catch (e) {
+          console.warn("DB lookup error:", e);
         }
       }
 
-      // 3. Check Local Accounts Database
+      // 3. Query Local Accounts Store
       const localAccounts = getStoredAccounts();
       const localAcc = localAccounts[cleanIdent];
 
-      // 4. Verify password against DB or Local DB
-      const dbHash = matchedProfile?.password_hash;
-      const localHash = localAcc?.passwordHash;
-
-      if (dbHash || localHash) {
-        if (dbHash === pwHash || localHash === pwHash) {
-          const finalId = matchedProfile?.id || localAcc?.id;
-          const finalEmail = matchedProfile?.email || localAcc?.email || cleanIdent;
-          const finalNick = matchedProfile?.nickname || localAcc?.nickname || "Chiến Binh";
+      // 4. Verify password
+      const expectedHash = matchedMeta?.pwHash || localAcc?.passwordHash;
+      if (expectedHash) {
+        if (expectedHash === pwHash) {
+          const finalId = matchedData?.id || localAcc?.id;
+          const finalEmail = matchedMeta?.email || localAcc?.email || cleanIdent;
+          const finalNick = matchedData?.nickname || localAcc?.nickname || "Chiến Binh";
 
           if (typeof window !== "undefined") {
             localStorage.setItem(
@@ -301,18 +360,6 @@ export const SupabaseService = {
               JSON.stringify({ userId: finalId, email: finalEmail, nickname: finalNick })
             );
           }
-
-          // Update both stores with fresh password hash
-          if (matchedProfile && isSupabaseConfigured()) {
-            supabase.from("profiles").update({ password_hash: pwHash }).eq("id", finalId).then();
-          }
-          saveStoredAccount({
-            ...(matchedProfile || localAcc),
-            id: finalId,
-            email: finalEmail,
-            nickname: finalNick,
-            passwordHash: pwHash,
-          });
 
           return {
             data: {
@@ -328,16 +375,21 @@ export const SupabaseService = {
         }
       }
 
-      // 5. If profile exists in DB but has no password hash yet (e.g. from guest sync), set it now!
-      if (matchedProfile) {
-        const finalId = matchedProfile.id;
-        const finalEmail = matchedProfile.email || cleanIdent;
-        const finalNick = matchedProfile.nickname;
+      // 5. If matched in DB but has no password hash yet, set password and log in
+      if (matchedData) {
+        const finalId = matchedData.id;
+        const finalEmail = matchedMeta?.email || cleanIdent;
+        const finalNick = matchedData.nickname;
+
+        const updatedFrame = encodeAvatarFrame({
+          ...(matchedMeta || { frame: "default" }),
+          email: finalEmail,
+          pwHash,
+        });
 
         if (isSupabaseConfigured()) {
-          await supabase.from("profiles").update({ password_hash: pwHash }).eq("id", finalId);
+          await supabase.from("profiles").update({ avatar_frame: updatedFrame }).eq("id", finalId);
         }
-        saveStoredAccount({ ...matchedProfile, passwordHash: pwHash });
 
         if (typeof window !== "undefined") {
           localStorage.setItem(
@@ -355,32 +407,6 @@ export const SupabaseService = {
           },
           error: null,
         };
-      }
-
-      // 6. Try standard Supabase Auth signIn
-      if (isSupabaseConfigured()) {
-        try {
-          const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-            email: cleanIdent,
-            password,
-          });
-
-          if (authData?.user) {
-            if (typeof window !== "undefined") {
-              localStorage.setItem(
-                "wf_auth_session",
-                JSON.stringify({
-                  userId: authData.user.id,
-                  email: authData.user.email,
-                  nickname: cleanIdent.split("@")[0],
-                })
-              );
-            }
-            return { data: authData, error: null };
-          }
-        } catch (authEx) {
-          console.warn("[Supabase Auth] Sign in exception:", authEx);
-        }
       }
 
       return { data: null, error: { message: "Tài khoản không tồn tại. Vui lòng chọn Đăng Ký!" } };
@@ -428,40 +454,80 @@ export const SupabaseService = {
 
   // ===================== PROFILES =====================
   async fetchProfile(userId: string): Promise<UserProfile | null> {
-    if (!isSupabaseConfigured() || !userId) return null;
+    if (!userId) return null;
 
-    try {
-      const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).single();
-      if (error || !data) return null;
+    // Check local accounts first for instant data
+    const local = getStoredAccounts();
+    const localProf = local[userId] || local[userId.toLowerCase()];
 
-      return {
-        id: data.id,
-        email: data.email || undefined,
-        nickname: data.nickname,
-        avatarColor: data.avatar_color,
-        avatarFrame: data.avatar_frame || "default",
-        gems: data.gems,
-        level: data.level,
-        totalWins: data.total_wins,
-        totalGames: data.total_games,
-        highestStreak: data.highest_streak,
-      };
-    } catch (err) {
-      console.warn("[Supabase] fetchProfile error:", err);
-      return null;
+    if (isSupabaseConfigured()) {
+      try {
+        const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
+        if (data && !error) {
+          const meta = decodeAvatarFrame(data.avatar_frame);
+          const isMasterAdmin = data.id.includes("admin") || meta.email?.toLowerCase() === "admin@gmail.com" || meta.role === "admin";
+          return {
+            id: data.id,
+            email: meta.email || localProf?.email,
+            nickname: data.nickname,
+            avatarColor: data.avatar_color,
+            avatarFrame: meta.frame || "default",
+            gems: isMasterAdmin ? 999999 : data.gems,
+            level: isMasterAdmin ? 99 : data.level,
+            totalWins: data.total_wins,
+            totalGames: data.total_games,
+            highestStreak: data.highest_streak,
+            role: isMasterAdmin ? "admin" : "user",
+            isBanned: meta.isBanned,
+          };
+        }
+      } catch (err) {
+        console.warn("[Supabase] fetchProfile error:", err);
+      }
     }
+
+    if (localProf) {
+      const isMasterAdmin = localProf.id?.includes("admin") || localProf.email?.toLowerCase() === "admin@gmail.com" || localProf.role === "admin";
+      return {
+        id: localProf.id,
+        email: localProf.email,
+        nickname: localProf.nickname,
+        avatarColor: localProf.avatarColor || "from-emerald-400 to-green-600",
+        avatarFrame: localProf.avatarFrame || "default",
+        gems: isMasterAdmin ? 999999 : (localProf.gems || 50),
+        level: isMasterAdmin ? 99 : (localProf.level || 1),
+        totalWins: localProf.totalWins || 0,
+        totalGames: localProf.totalGames || 0,
+        highestStreak: localProf.highestStreak || 0,
+        role: isMasterAdmin ? "admin" : "user",
+        isBanned: !!localProf.isBanned,
+      };
+    }
+
+    return null;
   },
 
   async upsertProfile(profile: UserProfile): Promise<boolean> {
-    if (!isSupabaseConfigured()) return false;
+    const encodedFrame = encodeAvatarFrame({
+      frame: profile.avatarFrame,
+      email: profile.email,
+      role: profile.role,
+      isBanned: profile.isBanned,
+    });
+
+    saveStoredAccount({
+      ...profile,
+      avatarFrame: profile.avatarFrame,
+    });
+
+    if (!isSupabaseConfigured()) return true;
 
     try {
       const { error } = await supabase.from("profiles").upsert({
         id: profile.id,
-        email: profile.email,
         nickname: profile.nickname,
         avatar_color: profile.avatarColor,
-        avatar_frame: profile.avatarFrame,
+        avatar_frame: encodedFrame,
         gems: profile.gems,
         level: profile.level,
         total_wins: profile.totalWins,
@@ -495,7 +561,7 @@ export const SupabaseService = {
           level_id: levelId,
           stars,
           score,
-          completed: true,
+          completed: stars > 0,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "user_id,game_mode,level_id" }
@@ -605,36 +671,76 @@ export const SupabaseService = {
 
   // ===================== ADMIN MANAGEMENT =====================
   async fetchAdminUserList(): Promise<UserProfile[]> {
-    if (!isSupabaseConfigured()) return [];
-    try {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .order("created_at", { ascending: false });
+    const list: UserProfile[] = [];
+    const idSet = new Set<string>();
 
-      if (error || !data) return [];
-      return data.map((d: any) => ({
-        id: d.id,
-        email: d.email || undefined,
-        nickname: d.nickname || "Chiến Binh",
-        avatarColor: d.avatar_color || "from-emerald-400 to-green-600",
-        avatarFrame: d.avatar_frame || "default",
-        gems: d.gems || 0,
-        level: d.level || 1,
-        totalWins: d.total_wins || 0,
-        totalGames: d.total_games || 0,
-        highestStreak: d.highest_streak || 0,
-        role: (d.email?.toLowerCase() === "admin@gmail.com" || d.role === "admin") ? "admin" : "user",
-        isBanned: !!d.is_banned,
-      }));
-    } catch (e) {
-      console.warn("fetchAdminUserList error:", e);
-      return [];
+    if (isSupabaseConfigured()) {
+      try {
+        const { data, error } = await supabase
+          .from("profiles")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (data && !error) {
+          data.forEach((d: any) => {
+            const meta = decodeAvatarFrame(d.avatar_frame);
+            const isMasterAdmin = d.id.includes("admin") || meta.email?.toLowerCase() === "admin@gmail.com" || meta.role === "admin";
+            idSet.add(d.id);
+            list.push({
+              id: d.id,
+              email: meta.email || (isMasterAdmin ? "admin@gmail.com" : undefined),
+              nickname: d.nickname || "Chiến Binh",
+              avatarColor: d.avatar_color || "from-emerald-400 to-green-600",
+              avatarFrame: meta.frame || "default",
+              gems: isMasterAdmin ? 999999 : (d.gems || 0),
+              level: isMasterAdmin ? 99 : (d.level || 1),
+              totalWins: d.total_wins || 0,
+              totalGames: d.total_games || 0,
+              highestStreak: d.highest_streak || 0,
+              role: isMasterAdmin ? "admin" : "user",
+              isBanned: !!meta.isBanned,
+            });
+          });
+        }
+      } catch (e) {
+        console.warn("fetchAdminUserList error:", e);
+      }
     }
+
+    // Also include local accounts if not in DB
+    const local = getStoredAccounts();
+    Object.values(local).forEach((acc: any) => {
+      if (acc?.id && !idSet.has(acc.id)) {
+        idSet.add(acc.id);
+        const isMasterAdmin = acc.id.includes("admin") || acc.email?.toLowerCase() === "admin@gmail.com" || acc.role === "admin";
+        list.push({
+          id: acc.id,
+          email: acc.email,
+          nickname: acc.nickname || "Chiến Binh",
+          avatarColor: acc.avatarColor || "from-emerald-400 to-green-600",
+          avatarFrame: acc.avatarFrame || "default",
+          gems: isMasterAdmin ? 999999 : (acc.gems || 50),
+          level: isMasterAdmin ? 99 : (acc.level || 1),
+          totalWins: acc.totalWins || 0,
+          totalGames: acc.totalGames || 0,
+          highestStreak: acc.highestStreak || 0,
+          role: isMasterAdmin ? "admin" : "user",
+          isBanned: !!acc.isBanned,
+        });
+      }
+    });
+
+    return list;
   },
 
   async adminUpdateGems(userId: string, newGems: number): Promise<boolean> {
-    if (!isSupabaseConfigured()) return false;
+    const local = getStoredAccounts();
+    if (local[userId]) {
+      local[userId].gems = newGems;
+      localStorage.setItem("wf_accounts_db", JSON.stringify(local));
+    }
+
+    if (!isSupabaseConfigured()) return true;
     try {
       const { error } = await supabase
         .from("profiles")
@@ -647,21 +753,36 @@ export const SupabaseService = {
   },
 
   async adminToggleBan(userId: string, isBanned: boolean): Promise<boolean> {
-    if (!isSupabaseConfigured()) return false;
+    const local = getStoredAccounts();
+    if (local[userId]) {
+      local[userId].isBanned = isBanned;
+      localStorage.setItem("wf_accounts_db", JSON.stringify(local));
+    }
+
+    if (!isSupabaseConfigured()) return true;
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ is_banned: isBanned, updated_at: new Date().toISOString() })
-        .eq("id", userId);
-      return !error;
+      const { data } = await supabase.from("profiles").select("avatar_frame").eq("id", userId).maybeSingle();
+      if (data) {
+        const meta = decodeAvatarFrame(data.avatar_frame);
+        const updated = encodeAvatarFrame({ ...meta, isBanned });
+        const { error } = await supabase.from("profiles").update({ avatar_frame: updated }).eq("id", userId);
+        return !error;
+      }
+      return false;
     } catch {
       return false;
     }
   },
 
   async adminDeleteUser(userId: string): Promise<boolean> {
-    if (!isSupabaseConfigured()) return false;
+    const local = getStoredAccounts();
+    delete local[userId];
+    localStorage.setItem("wf_accounts_db", JSON.stringify(local));
+
+    if (!isSupabaseConfigured()) return true;
     try {
+      await supabase.from("levels_progress").delete().eq("user_id", userId);
+      await supabase.from("rooms").delete().eq("host_id", userId);
       const { error } = await supabase.from("profiles").delete().eq("id", userId);
       return !error;
     } catch {
