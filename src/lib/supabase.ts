@@ -167,24 +167,35 @@ export const SupabaseService = {
       const pwHash = await hashPassword(password);
       const cleanNick = nickname.trim() || raw;
       const isAdminAccount = formattedEmail.toLowerCase() === "admin@gmail.com" || raw.toLowerCase() === "admin@gmail.com";
-      const userRole = isAdminAccount ? "admin" : "user";
-      const initialGems = isAdminAccount ? 999999 : 50;
-      const initialLevel = isAdminAccount ? 99 : 1;
 
-      // 1. Check if profile with same nickname or ID exists in Supabase
+      if (isAdminAccount) {
+        return {
+          data: null,
+          error: { message: "Email admin@gmail.com là tài khoản Quản Trị Viên hệ thống. Vui lòng chuyển sang tab Đăng Nhập!" },
+        };
+      }
+
+      const userRole = "user";
+      const initialGems = 50;
+      const initialLevel = 1;
+
+      // 1. Check if profile with same email, nickname, or ID exists in Supabase
+      const deletedSet = getDeletedUserIds();
       if (isSupabaseConfigured()) {
         try {
           const { data: existingRows } = await supabase
             .from("profiles")
             .select("id, nickname, avatar_frame")
-            .limit(100);
+            .limit(300);
 
           if (existingRows) {
             const found = existingRows.find((r: any) => {
+              if (r.nickname === "[ĐÃ XÓA]" || r.nickname === "[DELETED]" || deletedSet.has(r.id)) return false;
               const meta = decodeAvatarFrame(r.avatar_frame);
+              if (meta.isDeleted) return false;
               return (
                 r.nickname?.toLowerCase() === cleanNick.toLowerCase() ||
-                meta.email?.toLowerCase() === formattedEmail.toLowerCase() ||
+                (meta.email && meta.email.toLowerCase() === formattedEmail.toLowerCase()) ||
                 r.id === `acc_${cleanNick.toLowerCase().replace(/[^a-z0-9_]/g, "_")}`
               );
             });
@@ -192,13 +203,29 @@ export const SupabaseService = {
             if (found) {
               return {
                 data: null,
-                error: { message: "Tài khoản hoặc Nickname này đã tồn tại. Vui lòng chuyển sang Đăng Nhập!" },
+                error: { message: `Email "${formattedEmail}" hoặc Nickname "${cleanNick}" đã được đăng ký. Vui lòng chọn tên khác hoặc Đăng Nhập!` },
               };
             }
           }
         } catch (checkErr) {
           console.warn("[Supabase] Check existing warning:", checkErr);
         }
+      }
+
+      // Check local accounts
+      const local = getStoredAccounts();
+      const foundLocal = Object.values(local).find((a: any) =>
+        !a.isDeleted &&
+        !deletedSet.has(a.id) &&
+        a.nickname !== "[ĐÃ XÓA]" &&
+        ((a.email && a.email.toLowerCase() === formattedEmail.toLowerCase()) ||
+         (a.nickname && a.nickname.toLowerCase() === cleanNick.toLowerCase()))
+      );
+      if (foundLocal) {
+        return {
+          data: null,
+          error: { message: `Email "${formattedEmail}" hoặc Nickname "${cleanNick}" đã tồn tại. Vui lòng chuyển sang Đăng Nhập!` },
+        };
       }
 
       // 2. Generate unique User ID
@@ -722,6 +749,7 @@ export const SupabaseService = {
   async fetchAdminUserList(): Promise<UserProfile[]> {
     const list: UserProfile[] = [];
     const idSet = new Set<string>();
+    const seenEmails = new Set<string>();
     const deletedSet = getDeletedUserIds();
 
     if (isSupabaseConfigured()) {
@@ -745,14 +773,26 @@ export const SupabaseService = {
               return;
             }
 
-            const isMasterAdmin = d.id.includes("admin") || meta.email?.toLowerCase() === "admin@gmail.com" || meta.role === "admin";
+            const rawEmail = meta.email ? meta.email.toLowerCase() : (d.id.includes("admin") || meta.role === "admin" ? "admin@gmail.com" : undefined);
+            
+            // Deduplicate by email
+            if (rawEmail && seenEmails.has(rawEmail)) {
+              return;
+            }
+            if (idSet.has(d.id)) {
+              return;
+            }
+
+            const isMasterAdmin = d.id.includes("admin") || rawEmail === "admin@gmail.com" || meta.role === "admin";
             idSet.add(d.id);
+            if (rawEmail) seenEmails.add(rawEmail);
+
             list.push({
               id: d.id,
-              email: meta.email || (isMasterAdmin ? "admin@gmail.com" : undefined),
-              nickname: d.nickname || "Chiến Binh",
-              avatarColor: d.avatar_color || "from-emerald-400 to-green-600",
-              avatarFrame: meta.frame || "default",
+              email: rawEmail,
+              nickname: isMasterAdmin ? "Quản Trị Viên (Admin)" : (d.nickname || "Chiến Binh"),
+              avatarColor: isMasterAdmin ? "from-amber-400 to-yellow-600" : (d.avatar_color || "from-emerald-400 to-green-600"),
+              avatarFrame: isMasterAdmin ? "frame_gold" : (meta.frame || "default"),
               gems: isMasterAdmin ? 999999 : (d.gems || 0),
               level: isMasterAdmin ? 99 : (d.level || 1),
               totalWins: d.total_wins || 0,
@@ -768,25 +808,27 @@ export const SupabaseService = {
       }
     }
 
-    // Also include local accounts if not in DB & not deleted
+    // Also include local accounts if not in DB & not deleted & not duplicate
     const local = getStoredAccounts();
     Object.values(local).forEach((acc: any) => {
+      const accEmail = acc.email ? acc.email.toLowerCase() : (acc.id?.includes("admin") || acc.role === "admin" ? "admin@gmail.com" : undefined);
       if (
         acc?.id &&
         !idSet.has(acc.id) &&
         !deletedSet.has(acc.id) &&
-        !(acc.email && deletedSet.has(acc.email.toLowerCase())) &&
+        (!accEmail || (!deletedSet.has(accEmail) && !seenEmails.has(accEmail))) &&
         !acc.isDeleted &&
         acc.nickname !== "[ĐÃ XÓA]"
       ) {
         idSet.add(acc.id);
-        const isMasterAdmin = acc.id.includes("admin") || acc.email?.toLowerCase() === "admin@gmail.com" || acc.role === "admin";
+        if (accEmail) seenEmails.add(accEmail);
+        const isMasterAdmin = acc.id.includes("admin") || accEmail === "admin@gmail.com" || acc.role === "admin";
         list.push({
           id: acc.id,
-          email: acc.email,
-          nickname: acc.nickname || "Chiến Binh",
-          avatarColor: acc.avatarColor || "from-emerald-400 to-green-600",
-          avatarFrame: acc.avatarFrame || "default",
+          email: accEmail,
+          nickname: isMasterAdmin ? "Quản Trị Viên (Admin)" : (acc.nickname || "Chiến Binh"),
+          avatarColor: isMasterAdmin ? "from-amber-400 to-yellow-600" : (acc.avatarColor || "from-emerald-400 to-green-600"),
+          avatarFrame: isMasterAdmin ? "frame_gold" : (acc.avatarFrame || "default"),
           gems: isMasterAdmin ? 999999 : (acc.gems || 50),
           level: isMasterAdmin ? 99 : (acc.level || 1),
           totalWins: acc.totalWins || 0,
