@@ -27,6 +27,7 @@ import {
   Zap,
   Flame,
   HelpCircle,
+  CheckCircle2,
 } from "lucide-react";
 import { useGame } from "@/lib/game-context";
 import { sounds } from "@/lib/sound-effects";
@@ -67,15 +68,16 @@ export default function RoomMultiplayerPage({
         avatarColor: profile.avatarColor,
         avatarFrame: profile.avatarFrame,
         isHost: isCreator,
-        isReady: true,
+        isReady: isCreator,
         score: 0,
       },
     ],
-    activePlayerIndex: 0,
+    activePlayerId: profile.id,
     turnDeadline: 0,
     wordChain: [],
     winner: null,
     loser: null,
+    rematchReadyIds: [],
   });
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
@@ -172,15 +174,15 @@ export default function RoomMultiplayerPage({
     }
   }, [gameState.status, gameState.winner?.id, profile.id, rewardClaimed, addGems]);
 
-  // Focus input on player turn
+  // Direct check if it is my turn by ID
+  const isMyTurn = gameState.activePlayerId === profile.id;
+
+  // Auto focus input whenever it becomes my turn
   useEffect(() => {
-    if (gameState.status === "PLAYING") {
-      const activeP = gameState.players[gameState.activePlayerIndex];
-      if (activeP?.id === profile.id) {
-        inputRef.current?.focus();
-      }
+    if (gameState.status === "PLAYING" && isMyTurn) {
+      inputRef.current?.focus();
     }
-  }, [gameState.status, gameState.activePlayerIndex, gameState.players, profile.id]);
+  }, [gameState.status, isMyTurn]);
 
   const handleCopyLink = () => {
     if (typeof window !== "undefined") {
@@ -194,6 +196,16 @@ export default function RoomMultiplayerPage({
   const handleStartGame = () => {
     sounds.playCorrect();
     serviceRef.current?.startRPSPhase();
+  };
+
+  const handleToggleReady = (ready: boolean) => {
+    sounds.playClick();
+    serviceRef.current?.toggleReady(ready);
+  };
+
+  const handleRematchReady = () => {
+    sounds.playClick();
+    serviceRef.current?.toggleRematchReady();
   };
 
   const handleChooseRPS = (choice: RPSChoice) => {
@@ -234,11 +246,6 @@ export default function RoomMultiplayerPage({
     serviceRef.current?.surrender(profile.id);
   };
 
-  const handleRestart = () => {
-    sounds.playCorrect();
-    serviceRef.current?.restartGame();
-  };
-
   const handleSendChat = (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
@@ -248,8 +255,10 @@ export default function RoomMultiplayerPage({
   };
 
   const isHost = gameState.players.find((p) => p.id === profile.id)?.isHost ?? isCreator;
-  const activePlayer = gameState.players[gameState.activePlayerIndex];
-  const isMyTurn = activePlayer?.id === profile.id;
+  const myPlayer = gameState.players.find((p) => p.id === profile.id);
+
+  // All guests must be ready before host can start
+  const allGuestsReady = gameState.players.length >= 2 && gameState.players.every((p) => p.isReady);
 
   const lastItem = gameState.wordChain[gameState.wordChain.length - 1];
   const prevItem = gameState.wordChain.length >= 2 ? gameState.wordChain[gameState.wordChain.length - 2] : null;
@@ -261,10 +270,11 @@ export default function RoomMultiplayerPage({
 
   const p1 = gameState.players[0];
   const p2 = gameState.players[1];
-  const isActiveP1 = activePlayer?.id === p1?.id;
-  const isActiveP2 = activePlayer?.id === p2?.id;
+  const isActiveP1 = gameState.activePlayerId === p1?.id;
+  const isActiveP2 = gameState.activePlayerId === p2?.id;
 
   const isWinner = gameState.winner?.id === profile.id;
+  const hasRematchReady = gameState.rematchReadyIds.includes(profile.id);
 
   if (!isLoggedIn) {
     return (
@@ -356,7 +366,7 @@ export default function RoomMultiplayerPage({
       {/* MAIN ARENA CONTAINER */}
       <div className="flex-1 flex flex-col items-center justify-center my-auto py-6 w-full max-w-3xl mx-auto gap-6">
         {gameState.status === "WAITING" ? (
-          /* LOBBY WAITING SCREEN */
+          /* LOBBY WAITING SCREEN WITH READY SYSTEM */
           <div className="glass-card w-full rounded-[36px] p-6 sm:p-8 bg-background/80 backdrop-blur-xl border border-primary/20 shadow-2xl flex flex-col items-center gap-6 animate-in zoom-in-95">
             <div className="flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/30 text-xs font-black">
               <Sparkles className="h-4 w-4" />
@@ -368,7 +378,7 @@ export default function RoomMultiplayerPage({
                 Sẵn Sàng Thách Đấu!
               </h2>
               <p className="text-xs sm:text-sm text-muted-foreground font-medium max-w-md">
-                Mời bạn bè cùng vào phòng bằng mã <b className="text-primary">#{roomId}</b> hoặc bấm <b>Copy Link</b> ở góc trên
+                Người chơi cần bấm <b>Sẵn sàng</b> để Chủ phòng có thể bắt đầu trận đấu
               </p>
             </div>
 
@@ -377,7 +387,11 @@ export default function RoomMultiplayerPage({
               {gameState.players.map((p, idx) => (
                 <div
                   key={p.id}
-                  className="flex items-center justify-between p-4 rounded-2xl bg-muted/40 border border-border/60 backdrop-blur-sm"
+                  className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${
+                    p.isReady
+                      ? "bg-emerald-500/10 border-emerald-500/40 shadow-sm"
+                      : "bg-muted/40 border-border/60"
+                  }`}
                 >
                   <div className="flex items-center gap-3">
                     <div
@@ -390,7 +404,15 @@ export default function RoomMultiplayerPage({
                         <p className="font-black text-sm text-foreground truncate max-w-[130px]">{p.nickname}</p>
                         {p.isHost && <Crown className="h-4 w-4 text-amber-500 shrink-0" />}
                       </div>
-                      <span className="text-xs font-bold text-emerald-600">✓ Sẵn sàng chiến đấu</span>
+                      {p.isReady ? (
+                        <span className="text-xs font-black text-emerald-600 flex items-center gap-1">
+                          <CheckCircle2 className="h-3.5 w-3.5" /> Đã sẵn sàng
+                        </span>
+                      ) : (
+                        <span className="text-xs font-bold text-amber-600 animate-pulse">
+                          ⏳ Chưa sẵn sàng
+                        </span>
+                      )}
                     </div>
                   </div>
                   <span className="text-xs font-mono text-muted-foreground opacity-60">#{idx + 1}</span>
@@ -398,19 +420,48 @@ export default function RoomMultiplayerPage({
               ))}
             </div>
 
-            {isHost ? (
-              <button
-                type="button"
-                onClick={handleStartGame}
-                className="btn-wf-primary w-full h-14 rounded-2xl font-black text-primary-foreground text-base flex items-center justify-center gap-2 cursor-pointer shadow-xl active:scale-95 transition-all"
-              >
-                <Swords className="h-5 w-5" /> Bắt Đầu Trận Đấu
-              </button>
-            ) : (
-              <div className="p-3.5 rounded-2xl bg-muted/30 border border-border/50 text-center text-xs font-bold text-muted-foreground w-full animate-pulse">
-                ⏳ Đang chờ chủ phòng bắt đầu trận đấu...
-              </div>
-            )}
+            {/* Action Buttons: Host starts if all ready; Guest toggles Ready */}
+            <div className="w-full space-y-2.5 pt-2">
+              {isHost ? (
+                <button
+                  type="button"
+                  disabled={!allGuestsReady}
+                  onClick={handleStartGame}
+                  className={`w-full h-14 rounded-2xl font-black text-base flex items-center justify-center gap-2 transition-all ${
+                    allGuestsReady
+                      ? "btn-wf-primary text-primary-foreground shadow-xl active:scale-95 cursor-pointer animate-bounce"
+                      : "bg-muted/60 text-muted-foreground border border-border/60 cursor-not-allowed opacity-60"
+                  }`}
+                >
+                  <Swords className="h-5 w-5" />
+                  {gameState.players.length < 2
+                    ? "Đang Chờ Đối Thủ Vào Phòng... (1/2)"
+                    : allGuestsReady
+                    ? "Bắt Đầu Trận Đấu ⚔️"
+                    : "Chờ Đối Thủ Bấm Sẵn Sàng... ⏳"}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => handleToggleReady(!myPlayer?.isReady)}
+                  className={`w-full h-14 rounded-2xl font-black text-base flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg active:scale-95 ${
+                    myPlayer?.isReady
+                      ? "bg-rose-500/20 text-rose-600 hover:bg-rose-500/30 border border-rose-500/40"
+                      : "btn-wf-primary text-primary-foreground"
+                  }`}
+                >
+                  {myPlayer?.isReady ? (
+                    <>
+                      <RotateCcw className="h-5 w-5" /> Hủy Sẵn Sàng
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="h-5 w-5 fill-current" /> Tôi Đã Sẵn Sàng!
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         ) : gameState.status === "RPS" ? (
           /* RPS PHASE */
@@ -605,7 +656,11 @@ export default function RoomMultiplayerPage({
                         ? `${lastSyllable} ... (nhập từ nối tiếp)`
                         : "Đang chờ đến lượt của đối thủ..."
                     }
-                    className="w-full h-14 sm:h-16 px-6 sm:px-8 rounded-full border-2 border-border/80 bg-background text-xl sm:text-2xl font-black text-foreground placeholder:text-muted-foreground/60 placeholder:text-base focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/20 shadow-md disabled:opacity-50 transition-all"
+                    className={`w-full h-14 sm:h-16 px-6 sm:px-8 rounded-full border-2 bg-background text-xl sm:text-2xl font-black text-foreground placeholder:text-muted-foreground/60 placeholder:text-base focus:outline-none transition-all shadow-md ${
+                      isMyTurn
+                        ? "border-primary ring-4 ring-primary/20"
+                        : "border-border/80 opacity-60"
+                    }`}
                   />
                 </div>
                 <button
@@ -767,7 +822,7 @@ export default function RoomMultiplayerPage({
         </div>
       )}
 
-      {/* VICTORY / DEFEAT MODAL */}
+      {/* VICTORY / DEFEAT MODAL WITH DUAL READY CONFIRMATION */}
       {gameState.status === "FINISHED" && (
         <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in zoom-in-95 duration-200">
           <div className="glass-card max-w-md w-full p-8 rounded-[36px] bg-background/95 border border-primary/30 text-foreground text-center space-y-6 shadow-2xl">
@@ -802,10 +857,17 @@ export default function RoomMultiplayerPage({
             <div className="flex flex-col gap-2.5 pt-2">
               <button
                 type="button"
-                onClick={handleRestart}
-                className="btn-wf-primary w-full h-12 rounded-2xl font-black text-primary-foreground text-sm shadow-lg cursor-pointer flex items-center justify-center gap-2 transition-all"
+                onClick={handleRematchReady}
+                className={`w-full h-12 rounded-2xl font-black text-sm shadow-lg cursor-pointer flex items-center justify-center gap-2 transition-all ${
+                  hasRematchReady
+                    ? "bg-emerald-500/20 text-emerald-600 border border-emerald-500/40 animate-pulse"
+                    : "btn-wf-primary text-primary-foreground"
+                }`}
               >
-                <RotateCcw className="h-4 w-4" /> Chơi Lại Ván Mới
+                <RotateCcw className="h-4 w-4" />
+                {hasRematchReady
+                  ? "Đã Sẵn Sàng! Đang chờ đối thủ... (1/2) ⏳"
+                  : "Sẵn Sàng Chơi Tiếp ⚔️"}
               </button>
               <Link
                 href="/"

@@ -45,13 +45,14 @@ export interface MultiplayerGameState {
   language: "vi" | "en";
   status: "WAITING" | "RPS" | "PLAYING" | "FINISHED";
   players: RoomPlayer[];
-  activePlayerIndex: number;
+  activePlayerId: string;
   turnDeadline: number;
   wordChain: WordChainItem[];
   winner: RoomPlayer | null;
   loser: RoomPlayer | null;
   finishReason?: string;
   rpsState?: RPSState;
+  rematchReadyIds: string[];
 }
 
 const VIETNAMESE_STARTERS = [
@@ -108,13 +109,14 @@ export class MultiplayerRoomService {
     }
   ) {
     this.roomId = roomId;
+    const isHost = !!player.isHost;
     this.localPlayer = {
       id: player.id,
       nickname: player.nickname,
       avatarColor: player.avatarColor,
       avatarFrame: player.avatarFrame,
-      isHost: !!player.isHost,
-      isReady: true,
+      isHost,
+      isReady: isHost, // Host is ready by default, guests must toggle ready
       score: 0,
       isEliminated: false,
     };
@@ -127,11 +129,12 @@ export class MultiplayerRoomService {
       language,
       status: "WAITING",
       players: [this.localPlayer],
-      activePlayerIndex: 0,
+      activePlayerId: player.id,
       turnDeadline: 0,
       wordChain: [],
       winner: null,
       loser: null,
+      rematchReadyIds: [],
     };
   }
 
@@ -156,7 +159,6 @@ export class MultiplayerRoomService {
         const presenceState = this.channel?.presenceState() || {};
         const onlineMap = new Map<string, RoomPlayer>();
 
-        // Always keep local player
         onlineMap.set(this.localPlayer.id, this.localPlayer);
 
         Object.values(presenceState).forEach((presences: any) => {
@@ -169,7 +171,7 @@ export class MultiplayerRoomService {
                 avatarColor: p.avatarColor || existing?.avatarColor || "from-emerald-400 to-green-600",
                 avatarFrame: p.avatarFrame || "default",
                 isHost: p.isHost ?? existing?.isHost ?? false,
-                isReady: true,
+                isReady: p.isReady ?? existing?.isReady ?? (p.isHost ? true : false),
                 score: p.score ?? existing?.score ?? 0,
                 isEliminated: !!p.isEliminated,
               });
@@ -187,30 +189,46 @@ export class MultiplayerRoomService {
       };
 
       this.channel.on("presence", { event: "sync" }, handlePresenceUpdate);
-      this.channel.on("presence", { event: "join" }, ({ newPresences }) => {
-        handlePresenceUpdate();
-      });
-      this.channel.on("presence", { event: "leave" }, () => {
-        handlePresenceUpdate();
-      });
+      this.channel.on("presence", { event: "join" }, () => handlePresenceUpdate());
+      this.channel.on("presence", { event: "leave" }, () => handlePresenceUpdate());
 
-      // 2. Direct Broadcast Events (Instant Handshake between players)
+      // 2. Direct Broadcast Events
       this.channel
         .on("broadcast", { event: "player_hello" }, ({ payload }) => {
           if (payload?.player && payload.player.id !== this.localPlayer.id) {
-            const incoming = payload.player;
+            const incoming: RoomPlayer = payload.player;
             const exists = this.state.players.some((p) => p.id === incoming.id);
             if (!exists) {
               this.state.players = [...this.state.players, incoming];
               this.onStateChange({ ...this.state });
             }
-            // If I am host, send full game state back to incoming player
             if (this.localPlayer.isHost) {
               this.channel?.send({
                 type: "broadcast",
                 event: "room_welcome",
                 payload: { state: this.state },
               });
+            }
+          }
+        })
+        .on("broadcast", { event: "player_ready_toggle" }, ({ payload }) => {
+          if (payload?.playerId) {
+            const p = this.state.players.find((pl) => pl.id === payload.playerId);
+            if (p) {
+              p.isReady = payload.isReady;
+              this.onStateChange({ ...this.state });
+            }
+          }
+        })
+        .on("broadcast", { event: "player_rematch_ready" }, ({ payload }) => {
+          if (payload?.playerId) {
+            if (!this.state.rematchReadyIds.includes(payload.playerId)) {
+              this.state.rematchReadyIds.push(payload.playerId);
+              this.onStateChange({ ...this.state });
+            }
+            // If both players are ready for rematch, start new RPS phase!
+            if (this.state.rematchReadyIds.length >= Math.min(this.state.players.length, 2)) {
+              this.startRPSPhase();
             }
           }
         })
@@ -253,10 +271,10 @@ export class MultiplayerRoomService {
             avatarColor: this.localPlayer.avatarColor,
             avatarFrame: this.localPlayer.avatarFrame,
             isHost: this.localPlayer.isHost,
+            isReady: this.localPlayer.isReady,
             score: 0,
           });
 
-          // Announce hello to everyone in the room
           this.channel?.send({
             type: "broadcast",
             event: "player_hello",
@@ -279,6 +297,38 @@ export class MultiplayerRoomService {
     return Array.from(map.values());
   }
 
+  // ===================== READY TOGGLES =====================
+  public toggleReady(isReady: boolean) {
+    this.localPlayer.isReady = isReady;
+    const p = this.state.players.find((pl) => pl.id === this.localPlayer.id);
+    if (p) p.isReady = isReady;
+
+    this.onStateChange({ ...this.state });
+    this.channel?.send({
+      type: "broadcast",
+      event: "player_ready_toggle",
+      payload: { playerId: this.localPlayer.id, isReady },
+    });
+  }
+
+  public toggleRematchReady() {
+    if (!this.state.rematchReadyIds.includes(this.localPlayer.id)) {
+      this.state.rematchReadyIds.push(this.localPlayer.id);
+      this.onStateChange({ ...this.state });
+
+      this.channel?.send({
+        type: "broadcast",
+        event: "player_rematch_ready",
+        payload: { playerId: this.localPlayer.id },
+      });
+
+      // If all players are ready, launch new RPS
+      if (this.state.rematchReadyIds.length >= Math.min(this.state.players.length, 2)) {
+        this.startRPSPhase();
+      }
+    }
+  }
+
   // ===================== RPS PHASE =====================
   public startRPSPhase() {
     if (this.state.players.length === 0) return;
@@ -287,6 +337,7 @@ export class MultiplayerRoomService {
     this.state.winner = null;
     this.state.loser = null;
     this.state.finishReason = undefined;
+    this.state.rematchReadyIds = [];
     this.state.rpsState = {
       playerChoices: {},
       deadline: Date.now() + 6000,
@@ -359,11 +410,8 @@ export class MultiplayerRoomService {
     const list = this.state.language === "vi" ? VIETNAMESE_STARTERS : ENGLISH_STARTERS;
     const randomStarter = list[Math.floor(Math.random() * list.length)];
 
-    let activeIndex = this.state.players.findIndex((p) => p.id === firstPlayerId);
-    if (activeIndex === -1) activeIndex = 0;
-
     this.state.status = "PLAYING";
-    this.state.activePlayerIndex = activeIndex;
+    this.state.activePlayerId = firstPlayerId;
     this.state.turnDeadline = Date.now() + 20000;
     this.state.wordChain = [
       {
@@ -382,12 +430,12 @@ export class MultiplayerRoomService {
 
   // ===================== BATTLE GAMEPLAY =====================
   public async submitWord(word: string): Promise<boolean> {
-    const activePlayer = this.state.players[this.state.activePlayerIndex];
-    if (!activePlayer || activePlayer.id !== this.localPlayer.id) {
+    if (this.state.activePlayerId !== this.localPlayer.id) {
       this.onWordReject("Chưa đến lượt của bạn!");
       return false;
     }
 
+    const activePlayer = this.state.players.find((p) => p.id === this.localPlayer.id);
     const lastItem = this.state.wordChain[this.state.wordChain.length - 1];
     const prevWord = lastItem ? lastItem.word : null;
     const usedList = this.state.wordChain.map((w) => w.word);
@@ -409,16 +457,11 @@ export class MultiplayerRoomService {
     };
 
     this.state.wordChain.push(newItem);
-    activePlayer.score += 10;
+    if (activePlayer) activePlayer.score += 10;
 
-    let nextIdx = (this.state.activePlayerIndex + 1) % this.state.players.length;
-    let count = 0;
-    while (this.state.players[nextIdx].isEliminated && count < this.state.players.length) {
-      nextIdx = (nextIdx + 1) % this.state.players.length;
-      count++;
-    }
-
-    this.state.activePlayerIndex = nextIdx;
+    // Switch turn to opponent
+    const otherPlayer = this.state.players.find((p) => p.id !== this.localPlayer.id && !p.isEliminated);
+    this.state.activePlayerId = otherPlayer ? otherPlayer.id : this.localPlayer.id;
     this.state.turnDeadline = Date.now() + 20000;
 
     this.broadcastState();
@@ -429,16 +472,14 @@ export class MultiplayerRoomService {
   public handleTimeout() {
     if (this.state.status !== "PLAYING") return;
 
-    const timedOutPlayer = this.state.players[this.state.activePlayerIndex];
-    if (!timedOutPlayer) return;
-
-    const otherIdx = (this.state.activePlayerIndex + 1) % this.state.players.length;
-    const winnerPlayer = this.state.players[otherIdx] || timedOutPlayer;
+    const timedOutPlayer = this.state.players.find((p) => p.id === this.state.activePlayerId);
+    const winnerPlayer = this.state.players.find((p) => p.id !== this.state.activePlayerId) || timedOutPlayer;
 
     this.state.status = "FINISHED";
-    this.state.winner = winnerPlayer;
-    this.state.loser = timedOutPlayer;
+    this.state.winner = winnerPlayer || null;
+    this.state.loser = timedOutPlayer || null;
     this.state.finishReason = "timeout";
+    this.state.rematchReadyIds = [];
 
     this.broadcastState();
   }
@@ -450,15 +491,12 @@ export class MultiplayerRoomService {
     const winnerPlayer = this.state.players.find((p) => p.id !== playerId) || this.state.players[0];
 
     this.state.status = "FINISHED";
-    this.state.winner = winnerPlayer;
+    this.state.winner = winnerPlayer || null;
     this.state.loser = surrenderingPlayer || null;
     this.state.finishReason = "surrender";
+    this.state.rematchReadyIds = [];
 
     this.broadcastState();
-  }
-
-  public restartGame() {
-    this.startRPSPhase();
   }
 
   public sendChat(text: string) {
