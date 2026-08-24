@@ -254,11 +254,11 @@ export default function RoomMultiplayerPage({
     setChatInput("");
   };
 
-  const isHost = gameState.players.find((p) => p.id === profile.id)?.isHost ?? isCreator;
   const myPlayer = gameState.players.find((p) => p.id === profile.id);
+  const isHost = gameState.players.length > 0 ? (gameState.players[0].id === profile.id) : isCreator;
 
   // All guests must be ready before host can start
-  const allGuestsReady = gameState.players.length >= 2 && gameState.players.every((p) => p.isReady);
+  const allGuestsReady = gameState.players.length >= 2 && gameState.players.slice(1).every((p) => p.isReady);
 
   const lastItem = gameState.wordChain[gameState.wordChain.length - 1];
   const prevItem = gameState.wordChain.length >= 2 ? gameState.wordChain[gameState.wordChain.length - 2] : null;

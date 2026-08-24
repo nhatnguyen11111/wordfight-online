@@ -116,7 +116,7 @@ export class MultiplayerRoomService {
       avatarColor: player.avatarColor,
       avatarFrame: player.avatarFrame,
       isHost,
-      isReady: isHost, // Host is ready by default, guests must toggle ready
+      isReady: isHost, // Host is always ready, guest starts as false
       score: 0,
       isEliminated: false,
     };
@@ -170,8 +170,8 @@ export class MultiplayerRoomService {
                 nickname: p.nickname || existing?.nickname || "Người chơi",
                 avatarColor: p.avatarColor || existing?.avatarColor || "from-emerald-400 to-green-600",
                 avatarFrame: p.avatarFrame || "default",
-                isHost: p.isHost ?? existing?.isHost ?? false,
-                isReady: p.isReady ?? existing?.isReady ?? (p.isHost ? true : false),
+                isHost: !!p.isHost,
+                isReady: p.isHost ? true : (p.isReady ?? existing?.isReady ?? false),
                 score: p.score ?? existing?.score ?? 0,
                 isEliminated: !!p.isEliminated,
               });
@@ -180,12 +180,7 @@ export class MultiplayerRoomService {
         });
 
         const list = Array.from(onlineMap.values());
-        if (list.length > 0) {
-          const hasHost = list.some((p) => p.isHost);
-          if (!hasHost) list[0].isHost = true;
-          this.state.players = list;
-          this.onStateChange({ ...this.state });
-        }
+        this.normalizeAndBroadcastPlayers(list);
       };
 
       this.channel.on("presence", { event: "sync" }, handlePresenceUpdate);
@@ -199,8 +194,8 @@ export class MultiplayerRoomService {
             const incoming: RoomPlayer = payload.player;
             const exists = this.state.players.some((p) => p.id === incoming.id);
             if (!exists) {
-              this.state.players = [...this.state.players, incoming];
-              this.onStateChange({ ...this.state });
+              const merged = [...this.state.players, incoming];
+              this.normalizeAndBroadcastPlayers(merged);
             }
             if (this.localPlayer.isHost) {
               this.channel?.send({
@@ -226,7 +221,6 @@ export class MultiplayerRoomService {
               this.state.rematchReadyIds.push(payload.playerId);
               this.onStateChange({ ...this.state });
             }
-            // If both players are ready for rematch, start new RPS phase!
             if (this.state.rematchReadyIds.length >= Math.min(this.state.players.length, 2)) {
               this.startRPSPhase();
             }
@@ -287,6 +281,38 @@ export class MultiplayerRoomService {
     }
   }
 
+  // Ensure ONLY the room creator/first player is host, and all guests are guests
+  private normalizeAndBroadcastPlayers(list: RoomPlayer[]) {
+    if (list.length === 0) return;
+
+    // Find host
+    const hostIdx = list.findIndex((p) => p.isHost);
+    if (hostIdx > 0) {
+      const [host] = list.splice(hostIdx, 1);
+      list.unshift(host);
+    } else if (hostIdx === -1) {
+      list[0].isHost = true;
+    }
+
+    // Strict rule: Only index 0 is host (isReady = true). Index 1+ are members.
+    list[0].isHost = true;
+    list[0].isReady = true;
+
+    for (let i = 1; i < list.length; i++) {
+      list[i].isHost = false;
+    }
+
+    // Sync local player isHost & isReady state
+    const me = list.find((p) => p.id === this.localPlayer.id);
+    if (me) {
+      this.localPlayer.isHost = me.isHost;
+      this.localPlayer.isReady = me.isReady;
+    }
+
+    this.state.players = list;
+    this.onStateChange({ ...this.state });
+  }
+
   private mergePlayers(current: RoomPlayer[], incoming: RoomPlayer[]): RoomPlayer[] {
     const map = new Map<string, RoomPlayer>();
     current.forEach((p) => map.set(p.id, p));
@@ -294,7 +320,23 @@ export class MultiplayerRoomService {
       const existing = map.get(p.id);
       map.set(p.id, { ...existing, ...p });
     });
-    return Array.from(map.values());
+    const list = Array.from(map.values());
+
+    if (list.length > 0) {
+      const hostIdx = list.findIndex((p) => p.isHost);
+      if (hostIdx > 0) {
+        const [host] = list.splice(hostIdx, 1);
+        list.unshift(host);
+      } else if (hostIdx === -1) {
+        list[0].isHost = true;
+      }
+      list[0].isHost = true;
+      list[0].isReady = true;
+      for (let i = 1; i < list.length; i++) {
+        list[i].isHost = false;
+      }
+    }
+    return list;
   }
 
   // ===================== READY TOGGLES =====================
@@ -322,7 +364,6 @@ export class MultiplayerRoomService {
         payload: { playerId: this.localPlayer.id },
       });
 
-      // If all players are ready, launch new RPS
       if (this.state.rematchReadyIds.length >= Math.min(this.state.players.length, 2)) {
         this.startRPSPhase();
       }
