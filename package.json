@@ -1,8 +1,8 @@
 {
-  "name": "ai-website-clone-template",
-  "version": "0.4.0",
+  "name": "gamenoichuonline",
+  "version": "1.0.0",
   "private": true,
-  "description": "Clone any website into a clean, modern Next.js codebase using AI coding agents",
+  "description": "Nối Chữ Online - Đấu Trường Trí Tuệ Nối Từ & Đoán Chữ Đỉnh Cao",
   "author": "JCodesMore",
   "license": "MIT",
   "repository": {

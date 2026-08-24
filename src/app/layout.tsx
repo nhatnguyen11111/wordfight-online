@@ -27,10 +27,12 @@ const baloo2 = Baloo_2({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://gamenoichuonline.com"),
   title: "Nối Chữ Online - Đấu Trường Trí Tuệ Nối Từ & Đoán Chữ Đỉnh Cao",
   description:
     "Trải nghiệm game Nối Chữ Online miễn phí số 1 Việt Nam. Đấu trường trí tuệ đối kháng 1vs1, solo cùng bạn bè, luyện tập cùng AI thông minh và chinh phục Vua Tiếng Việt!",
   keywords: [
+    "gamenoichuonline",
     "nối chữ online",
     "nối từ online",
     "game nối chữ",
@@ -41,8 +43,16 @@ export const metadata: Metadata = {
     "nối từ tiếng anh",
     "game trí tuệ online",
   ],
+  openGraph: {
+    title: "Nối Chữ Online - Đấu Trường Trí Tuệ Nối Từ & Đoán Chữ Đỉnh Cao",
+    description: "Trải nghiệm game Nối Chữ Online miễn phí số 1 Việt Nam. Đấu trường trí tuệ đối kháng 1vs1!",
+    url: "https://gamenoichuonline.com",
+    siteName: "Nối Chữ Online",
+    locale: "vi_VN",
+    type: "website",
+  },
   icons: {
-    icon: "/images/logo/noi-chu-logo.jpg",
+    icon: "/images/logo/noi-chu-logo-transparent.png",
   },
 };
 
