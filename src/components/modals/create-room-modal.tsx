@@ -187,7 +187,11 @@ export function CreateRoomModal() {
 
     sounds.playCorrect();
     closeModal();
-    router.push(`/play/friends/room/${room.id}`);
+    router.push(
+      `/play/friends/room/${room.id}?lang=${room.language}&theme=${room.themeColor}&name=${encodeURIComponent(
+        room.name
+      )}&time=${room.turnTimeSec}&bet=${room.betCoins || 0}`
+    );
   };
 
   // Verify password modal submit
@@ -198,9 +202,14 @@ export function CreateRoomModal() {
     if (enteredPassword.trim() === passwordPromptRoom.password?.trim()) {
       sounds.playCorrect();
       const code = passwordPromptRoom.id;
+      const room = passwordPromptRoom;
       setPasswordPromptRoom(null);
       closeModal();
-      router.push(`/play/friends/room/${code}`);
+      router.push(
+        `/play/friends/room/${code}?lang=${room.language}&theme=${room.themeColor}&name=${encodeURIComponent(
+          room.name
+        )}&time=${room.turnTimeSec}&bet=${room.betCoins || 0}`
+      );
     } else {
       sounds.playWrong();
       setPasswordError("Mật khẩu phòng không chính xác!");

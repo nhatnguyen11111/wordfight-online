@@ -33,9 +33,6 @@ export const ROOM_COLOR_THEMES = [
   { id: "cyan", name: "Neon Cyber", bg: "from-cyan-500/20 to-blue-500/20", border: "border-cyan-500/40", text: "text-cyan-600 dark:text-cyan-400", badge: "bg-cyan-500/10 text-cyan-600" },
 ] as const;
 
-// Maximum silence allowed before a room without players is purged (20 seconds)
-const ROOM_HEARTBEAT_TIMEOUT_MS = 20_000;
-
 // In-memory cross-tab fallback storage
 const memoryRooms = new Map<string, RoomInfo>();
 
@@ -61,6 +58,15 @@ function addDisbandedRoomId(id: string) {
   } catch {}
 }
 
+function removeDisbandedRoomId(id: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const set = getDisbandedRoomIds();
+    set.delete(id);
+    localStorage.setItem("wf_disbanded_rooms", JSON.stringify(Array.from(set)));
+  } catch {}
+}
+
 export const RoomRegistry = {
   /**
    * Register or update an active room
@@ -71,43 +77,54 @@ export const RoomRegistry = {
     const formattedRoom: RoomInfo = {
       ...room,
       id: cleanId,
-      lastHeartbeat: room.lastHeartbeat || now,
+      createdAt: room.createdAt || now,
+      lastHeartbeat: now,
     };
-    memoryRooms.set(cleanId, formattedRoom);
 
-    // Save in local storage for fallback
+    memoryRooms.set(cleanId, formattedRoom);
+    removeDisbandedRoomId(cleanId);
+
+    // Save in local storage
     if (typeof window !== "undefined") {
       try {
         const stored = JSON.parse(localStorage.getItem("wf_active_rooms") || "{}");
         stored[cleanId] = formattedRoom;
         localStorage.setItem("wf_active_rooms", JSON.stringify(stored));
-
-        // Remove from disbanded if newly registered
-        const disbanded = getDisbandedRoomIds();
-        if (disbanded.has(cleanId)) {
-          disbanded.delete(cleanId);
-          localStorage.setItem("wf_disbanded_rooms", JSON.stringify(Array.from(disbanded)));
-        }
       } catch (e) {
         console.warn("Storage error:", e);
       }
     }
 
+    // Save to Supabase DB for cross-client discovery
     if (isSupabaseConfigured()) {
       try {
+        const encodedMeta = JSON.stringify({
+          n: room.name,
+          t: room.themeColor,
+          b: room.betCoins || 0,
+          s: room.turnTimeSec,
+          p: room.hasPassword,
+          pw: room.password,
+          h: room.hostNickname,
+          hc: room.hostAvatarColor,
+          c: room.playerCount || 1,
+          l: room.language,
+          hb: now,
+        });
+
         await supabase.from("rooms").upsert({
           id: cleanId,
           code: cleanId,
-          host_id: null,
-          language: room.language,
-          status: room.status,
+          host_id: room.hostId,
+          language: encodedMeta,
+          status: room.status || "WAITING",
         });
       } catch (err) {
         console.warn("[RoomRegistry] DB upsert error:", err);
       }
     }
 
-    // Broadcast room update to all lobby listeners with full payload
+    // Broadcast update
     this.broadcastLobbyUpdate(formattedRoom);
     return true;
   },
@@ -122,15 +139,6 @@ export const RoomRegistry = {
     if (existing) {
       existing.lastHeartbeat = now;
       memoryRooms.set(cleanId, existing);
-    }
-    if (typeof window !== "undefined") {
-      try {
-        const stored = JSON.parse(localStorage.getItem("wf_active_rooms") || "{}");
-        if (stored[cleanId]) {
-          stored[cleanId].lastHeartbeat = now;
-          localStorage.setItem("wf_active_rooms", JSON.stringify(stored));
-        }
-      } catch {}
     }
   },
 
@@ -183,16 +191,9 @@ export const RoomRegistry = {
     const disbanded = getDisbandedRoomIds();
     if (disbanded.has(cleanId)) return null;
 
-    const now = Date.now();
-
     // 1. Check in-memory
     if (memoryRooms.has(cleanId)) {
-      const r = memoryRooms.get(cleanId)!;
-      if (now - (r.lastHeartbeat || r.createdAt) > ROOM_HEARTBEAT_TIMEOUT_MS) {
-        this.unregisterRoom(cleanId);
-        return null;
-      }
-      return r;
+      return memoryRooms.get(cleanId)!;
     }
 
     // 2. Check localStorage
@@ -201,10 +202,6 @@ export const RoomRegistry = {
         const stored = JSON.parse(localStorage.getItem("wf_active_rooms") || "{}");
         if (stored[cleanId]) {
           const r = stored[cleanId];
-          if (now - (r.lastHeartbeat || r.createdAt) > ROOM_HEARTBEAT_TIMEOUT_MS) {
-            this.unregisterRoom(cleanId);
-            return null;
-          }
           memoryRooms.set(cleanId, r);
           return r;
         }
@@ -213,42 +210,71 @@ export const RoomRegistry = {
       }
     }
 
+    // 3. Check Supabase DB
+    if (isSupabaseConfigured()) {
+      try {
+        const { data, error } = await supabase.from("rooms").select("*").eq("id", cleanId).maybeSingle();
+        if (data && !error && data.status !== "FINISHED") {
+          let parsed: any = {};
+          try {
+            if (data.language && data.language.startsWith("{")) {
+              parsed = JSON.parse(data.language);
+            }
+          } catch {}
+
+          const room: RoomInfo = {
+            id: data.id,
+            name: parsed.n || `Phòng Đấu #${data.id}`,
+            themeColor: parsed.t || "emerald",
+            language: parsed.l || (data.language === "en" ? "en" : "vi"),
+            hasPassword: !!parsed.p,
+            password: parsed.pw,
+            turnTimeSec: parsed.s || 20,
+            betCoins: parsed.b || 0,
+            hostId: data.host_id || "host",
+            hostNickname: parsed.h || "Chủ Phòng",
+            hostAvatarColor: parsed.hc || "from-emerald-400 to-green-600",
+            playerCount: parsed.c || 1,
+            maxPlayers: 2,
+            status: data.status || "WAITING",
+            createdAt: new Date(data.created_at).getTime(),
+            lastHeartbeat: parsed.hb || Date.now(),
+          };
+
+          memoryRooms.set(cleanId, room);
+          return room;
+        }
+      } catch (err) {
+        console.warn("[RoomRegistry] DB fetch error:", err);
+      }
+    }
+
     return null;
   },
 
   /**
-   * List all active rooms (filters out abandoned/dead rooms)
+   * List all active rooms
    */
   async listActiveRooms(): Promise<RoomInfo[]> {
     const map = new Map<string, RoomInfo>();
     const disbanded = getDisbandedRoomIds();
     const now = Date.now();
-    const staleIds: string[] = [];
+    const MAX_AGE_MS = 25 * 60 * 1000; // 25 minutes TTL for active rooms
 
-    // 1. Inspect in-memory rooms
+    // 1. From Memory
     memoryRooms.forEach((r, id) => {
-      if (disbanded.has(id) || now - (r.lastHeartbeat || r.createdAt) > ROOM_HEARTBEAT_TIMEOUT_MS || r.playerCount <= 0) {
-        staleIds.push(id);
-      } else {
+      if (!disbanded.has(id) && r.status !== "FINISHED" && now - r.createdAt < MAX_AGE_MS) {
         map.set(id, r);
       }
     });
 
-    // 2. Inspect localStorage rooms
+    // 2. From LocalStorage
     if (typeof window !== "undefined") {
       try {
         const stored = JSON.parse(localStorage.getItem("wf_active_rooms") || "{}");
         Object.values(stored).forEach((r: any) => {
-          if (r?.id) {
-            if (
-              disbanded.has(r.id) ||
-              now - (r.lastHeartbeat || r.createdAt || 0) > ROOM_HEARTBEAT_TIMEOUT_MS ||
-              r.playerCount <= 0
-            ) {
-              staleIds.push(r.id);
-            } else {
-              map.set(r.id, r as RoomInfo);
-            }
+          if (r?.id && !disbanded.has(r.id) && r.status !== "FINISHED" && now - (r.createdAt || 0) < MAX_AGE_MS) {
+            map.set(r.id, r as RoomInfo);
           }
         });
       } catch (e) {
@@ -256,16 +282,61 @@ export const RoomRegistry = {
       }
     }
 
-    // Clean up all stale dead rooms immediately
-    staleIds.forEach((id) => {
-      this.unregisterRoom(id);
-    });
+    // 3. From Supabase Database
+    if (isSupabaseConfigured()) {
+      try {
+        const { data, error } = await supabase
+          .from("rooms")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .limit(30);
+
+        if (data && !error) {
+          data.forEach((d: any) => {
+            if (!disbanded.has(d.id) && d.status !== "FINISHED") {
+              const age = now - new Date(d.created_at).getTime();
+              if (age < MAX_AGE_MS) {
+                let parsed: any = {};
+                try {
+                  if (d.language && d.language.startsWith("{")) {
+                    parsed = JSON.parse(d.language);
+                  }
+                } catch {}
+
+                if (!map.has(d.id)) {
+                  map.set(d.id, {
+                    id: d.id,
+                    name: parsed.n || `Phòng Đấu #${d.id}`,
+                    themeColor: parsed.t || "emerald",
+                    language: parsed.l || (d.language === "en" ? "en" : "vi"),
+                    hasPassword: !!parsed.p,
+                    password: parsed.pw,
+                    turnTimeSec: parsed.s || 20,
+                    betCoins: parsed.b || 0,
+                    hostId: d.host_id || "host",
+                    hostNickname: parsed.h || "Chủ Phòng",
+                    hostAvatarColor: parsed.hc || "from-emerald-400 to-green-600",
+                    playerCount: parsed.c || 1,
+                    maxPlayers: 2,
+                    status: d.status || "WAITING",
+                    createdAt: new Date(d.created_at).getTime(),
+                    lastHeartbeat: parsed.hb || Date.now(),
+                  });
+                }
+              }
+            }
+          });
+        }
+      } catch (err) {
+        console.warn("[RoomRegistry] DB list error:", err);
+      }
+    }
 
     return Array.from(map.values()).sort((a, b) => b.createdAt - a.createdAt);
   },
 
   /**
-   * Subscribe to real-time room list updates with periodic auto-cleaning
+   * Subscribe to real-time room list updates
    */
   subscribeToRooms(onRoomsUpdate: (rooms: RoomInfo[]) => void) {
     const fetchAndNotify = () => {
@@ -274,10 +345,7 @@ export const RoomRegistry = {
 
     fetchAndNotify();
 
-    // Periodic sweep every 3 seconds to immediately remove empty/closed rooms
-    const interval = setInterval(() => {
-      fetchAndNotify();
-    }, 3000);
+    const interval = setInterval(fetchAndNotify, 4000);
 
     if (!isSupabaseConfigured()) {
       return () => clearInterval(interval);
@@ -301,6 +369,7 @@ export const RoomRegistry = {
         }
       } else if (payload?.room?.id) {
         memoryRooms.set(payload.room.id, payload.room);
+        removeDisbandedRoomId(payload.room.id);
         if (typeof window !== "undefined") {
           try {
             const stored = JSON.parse(localStorage.getItem("wf_active_rooms") || "{}");

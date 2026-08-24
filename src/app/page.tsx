@@ -291,10 +291,20 @@ export default function Home() {
                       type="button"
                       onClick={() => {
                         if (!isLoggedIn) {
+                          sounds.playWrong();
                           openModal("auth");
                           return;
                         }
-                        openModal("createRoom");
+                        if (room.hasPassword) {
+                          openModal("createRoom");
+                          return;
+                        }
+                        sounds.playCorrect();
+                        router.push(
+                          `/play/friends/room/${room.id}?lang=${room.language}&theme=${room.themeColor}&name=${encodeURIComponent(
+                            room.name
+                          )}&time=${room.turnTimeSec}&bet=${room.betCoins || 0}`
+                        );
                       }}
                       className="btn-wf-primary h-7 px-3 rounded-lg text-xs font-black text-primary-foreground cursor-pointer active:scale-95"
                     >

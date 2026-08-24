@@ -110,25 +110,54 @@ export default function RoomMultiplayerPage({
   const serviceRef = useRef<MultiplayerRoomService | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Check Room Existence
+  // Check Room Existence or Auto-register Creator Room
   useEffect(() => {
     let isMounted = true;
     const checkRoom = async () => {
+      if (isCreator) {
+        const existing = await RoomRegistry.getRoom(roomId);
+        if (!existing) {
+          const initialRoom: RoomInfo = {
+            id: roomId,
+            name: customRoomName,
+            themeColor: (resolvedSearchParams?.theme as any) || "emerald",
+            language,
+            hasPassword: false,
+            turnTimeSec: resolvedSearchParams?.time ? Number(resolvedSearchParams.time) : 20,
+            betCoins: resolvedSearchParams?.bet ? Number(resolvedSearchParams.bet) : 0,
+            hostId: profile.id,
+            hostNickname: profile.nickname,
+            hostAvatarColor: profile.avatarColor,
+            playerCount: 1,
+            maxPlayers: 2,
+            status: "WAITING",
+            createdAt: Date.now(),
+          };
+          await RoomRegistry.registerRoom(initialRoom);
+          if (isMounted) setRoomInfo(initialRoom);
+        } else if (isMounted) {
+          setRoomInfo(existing);
+        }
+        return;
+      }
+
+      // For guests joining
       const info = await RoomRegistry.getRoom(roomId);
       if (isMounted) {
-        if (!info && !isCreator) {
+        if (!info) {
           setRoomNotFound(true);
           sounds.playWrong();
-        } else if (info) {
+        } else {
           setRoomInfo(info);
         }
       }
     };
+
     checkRoom();
     return () => {
       isMounted = false;
     };
-  }, [roomId, isCreator]);
+  }, [roomId, isCreator, language, customRoomName, profile.id, profile.nickname, profile.avatarColor]);
 
   // Active Room Heartbeat (Pings every 4 seconds to prove room is actively occupied)
   useEffect(() => {
@@ -330,12 +359,16 @@ export default function RoomMultiplayerPage({
     }
   };
 
+  const playersRef = useRef<RoomPlayer[]>(gameState.players);
+  playersRef.current = gameState.players;
+
   const handleLeaveRoom = () => {
     sounds.playClick();
-    if (gameState.players.length <= 1) {
+    const currentPlayers = playersRef.current;
+    if (currentPlayers.length <= 1) {
       RoomRegistry.unregisterRoom(roomId);
     } else {
-      const other = gameState.players.find((p) => p.id !== profile.id);
+      const other = currentPlayers.find((p) => p.id !== profile.id);
       if (other) {
         RoomRegistry.updateRoom(roomId, {
           hostId: other.id,
@@ -349,11 +382,12 @@ export default function RoomMultiplayerPage({
   };
 
   useEffect(() => {
-    const handleCleanLeave = () => {
-      if (gameState.players.length <= 1) {
+    const handleWindowUnload = () => {
+      const currentPlayers = playersRef.current;
+      if (currentPlayers.length <= 1) {
         RoomRegistry.unregisterRoom(roomId);
       } else {
-        const other = gameState.players.find((p) => p.id !== profile.id);
+        const other = currentPlayers.find((p) => p.id !== profile.id);
         if (other) {
           RoomRegistry.updateRoom(roomId, {
             hostId: other.id,
@@ -365,15 +399,14 @@ export default function RoomMultiplayerPage({
       }
     };
 
-    window.addEventListener("beforeunload", handleCleanLeave);
-    window.addEventListener("pagehide", handleCleanLeave);
+    window.addEventListener("beforeunload", handleWindowUnload);
+    window.addEventListener("pagehide", handleWindowUnload);
 
     return () => {
-      window.removeEventListener("beforeunload", handleCleanLeave);
-      window.removeEventListener("pagehide", handleCleanLeave);
-      handleCleanLeave();
+      window.removeEventListener("beforeunload", handleWindowUnload);
+      window.removeEventListener("pagehide", handleWindowUnload);
     };
-  }, [roomId, gameState.players, profile.id]);
+  }, [roomId, profile.id]);
 
   const myPlayer = gameState.players.find((p) => p.id === profile.id);
   const isHost = gameState.players.length > 0 ? (gameState.players[0].id === profile.id) : isCreator;
