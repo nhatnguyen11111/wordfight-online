@@ -420,7 +420,7 @@ export default function RoomMultiplayerPage({
               ))}
             </div>
 
-            {/* Action Buttons: Host starts if all ready; Guest toggles Ready */}
+            {/* Action Buttons: Host starts if all ready; Member toggles Sẵn Sàng / Hủy Sẵn Sàng */}
             <div className="w-full space-y-2.5 pt-2">
               {isHost ? (
                 <button
@@ -429,37 +429,44 @@ export default function RoomMultiplayerPage({
                   onClick={handleStartGame}
                   className={`w-full h-14 rounded-2xl font-black text-base flex items-center justify-center gap-2 transition-all ${
                     allGuestsReady
-                      ? "btn-wf-primary text-primary-foreground shadow-xl active:scale-95 cursor-pointer animate-bounce"
-                      : "bg-muted/60 text-muted-foreground border border-border/60 cursor-not-allowed opacity-60"
+                      ? "btn-wf-primary text-primary-foreground shadow-xl active:scale-95 cursor-pointer animate-pulse"
+                      : "bg-muted/60 text-muted-foreground border border-border/60 cursor-not-allowed opacity-70"
                   }`}
                 >
                   <Swords className="h-5 w-5" />
                   {gameState.players.length < 2
                     ? "Đang Chờ Đối Thủ Vào Phòng... (1/2)"
                     : allGuestsReady
-                    ? "Bắt Đầu Trận Đấu ⚔️"
+                    ? "Bắt Đầu Trận Đấu"
                     : "Chờ Đối Thủ Bấm Sẵn Sàng... ⏳"}
                 </button>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => handleToggleReady(!myPlayer?.isReady)}
-                  className={`w-full h-14 rounded-2xl font-black text-base flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg active:scale-95 ${
-                    myPlayer?.isReady
-                      ? "bg-rose-500/20 text-rose-600 hover:bg-rose-500/30 border border-rose-500/40"
-                      : "btn-wf-primary text-primary-foreground"
-                  }`}
-                >
-                  {myPlayer?.isReady ? (
-                    <>
-                      <RotateCcw className="h-5 w-5" /> Hủy Sẵn Sàng
-                    </>
-                  ) : (
-                    <>
-                      <Zap className="h-5 w-5 fill-current" /> Tôi Đã Sẵn Sàng!
-                    </>
+                <div className="w-full flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleToggleReady(!myPlayer?.isReady)}
+                    className={`w-full h-14 rounded-2xl font-black text-base flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg active:scale-95 ${
+                      myPlayer?.isReady
+                        ? "bg-rose-500/20 text-rose-600 hover:bg-rose-500/30 border-2 border-rose-500/40"
+                        : "btn-wf-primary text-primary-foreground shadow-xl animate-bounce"
+                    }`}
+                  >
+                    {myPlayer?.isReady ? (
+                      <>
+                        <RotateCcw className="h-5 w-5" /> Hủy Sẵn Sàng
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="h-5 w-5 fill-current" /> Sẵn Sàng
+                      </>
+                    )}
+                  </button>
+                  {myPlayer?.isReady && (
+                    <p className="text-center text-xs font-bold text-emerald-600">
+                      ✓ Bạn đã sẵn sàng! Đang chờ Chủ phòng bấm Bắt đầu...
+                    </p>
                   )}
-                </button>
+                </div>
               )}
             </div>
           </div>
