@@ -52,15 +52,13 @@ export default function Home() {
       {/* Main Hero & Game Mode Grid */}
       <div className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col items-center justify-center gap-8 xl:flex-row xl:gap-14 my-auto">
         {/* 3D Brand Logo & Hero Banner */}
-        <div className="flex w-full flex-col items-center justify-center text-center xl:items-start xl:text-left xl:flex-[0_0_420px] space-y-4">
-          <div className="flex flex-col items-center xl:items-start gap-3">
-            <BrandLogo size="hero" showText={true} />
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-black">
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>Đấu Trường Trực Tuyến 2026</span>
-            </div>
+        <div className="flex w-full flex-col items-center justify-center text-center xl:items-start xl:text-left xl:flex-[0_0_380px] space-y-3">
+          <BrandLogo size="hero" showText={false} />
+          <div className="flex items-center gap-2 px-3.5 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-black mx-auto xl:mx-0">
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>Đấu Trường Nối Chữ Online 2026</span>
           </div>
-          <p className="text-xs sm:text-sm text-muted-foreground font-medium max-w-md leading-relaxed">
+          <p className="text-xs sm:text-sm text-muted-foreground font-medium max-w-sm leading-relaxed mx-auto xl:mx-0">
             Chinh phục từ vựng phong phú, rèn luyện phản xạ ngôn ngữ và so tài đỉnh cao 1vs1 trong thời gian thực cùng bạn bè!
           </p>
         </div>
