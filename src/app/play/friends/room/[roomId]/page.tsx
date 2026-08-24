@@ -39,6 +39,8 @@ import {
   RPSChoice,
 } from "@/lib/multiplayer-room-service";
 
+import { RoomRegistry, RoomInfo } from "@/lib/room-registry";
+
 const TURN_TIME_SEC = 20;
 
 export default function RoomMultiplayerPage({
@@ -46,17 +48,23 @@ export default function RoomMultiplayerPage({
   searchParams,
 }: {
   params: Promise<{ roomId: string }>;
-  searchParams?: Promise<{ create?: string; lang?: string }>;
+  searchParams?: Promise<{ create?: string; lang?: string; theme?: string; name?: string; time?: string }>;
 }) {
   const resolvedParams = use(params);
   const resolvedSearchParams = searchParams ? use(searchParams) : {};
   const roomId = resolvedParams.roomId;
   const isCreator = resolvedSearchParams?.create === "true";
   const language = (resolvedSearchParams?.lang === "en" ? "en" : "vi") as "vi" | "en";
+  const customRoomName = resolvedSearchParams?.name ? decodeURIComponent(resolvedSearchParams.name) : `PHÒNG #${roomId}`;
 
   const { profile, addGems, isLoggedIn, openModal } = useGame();
 
   const [copied, setCopied] = useState(false);
+  const [roomInfo, setRoomInfo] = useState<RoomInfo | null>(null);
+  const [roomNotFound, setRoomNotFound] = useState(false);
+  const [wasKicked, setWasKicked] = useState(false);
+  const [kickedReason, setKickedReason] = useState("");
+
   const [gameState, setGameState] = useState<MultiplayerGameState>({
     roomId,
     language,
@@ -87,7 +95,9 @@ export default function RoomMultiplayerPage({
   const [showChatModal, setShowChatModal] = useState(false);
   const [inputWord, setInputWord] = useState("");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [localTimeLeft, setLocalTimeLeft] = useState<number>(TURN_TIME_SEC);
+  const [localTimeLeft, setLocalTimeLeft] = useState<number>(
+    resolvedSearchParams?.time ? Number(resolvedSearchParams.time) : TURN_TIME_SEC
+  );
   const [selectedRps, setSelectedRps] = useState<RPSChoice | null>(null);
   const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
   const [rewardClaimed, setRewardClaimed] = useState(false);
@@ -96,8 +106,30 @@ export default function RoomMultiplayerPage({
   const serviceRef = useRef<MultiplayerRoomService | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Check Room Existence
+  useEffect(() => {
+    let isMounted = true;
+    const checkRoom = async () => {
+      const info = await RoomRegistry.getRoom(roomId);
+      if (isMounted) {
+        if (!info && !isCreator) {
+          setRoomNotFound(true);
+          sounds.playWrong();
+        } else if (info) {
+          setRoomInfo(info);
+        }
+      }
+    };
+    checkRoom();
+    return () => {
+      isMounted = false;
+    };
+  }, [roomId, isCreator]);
+
   // Initialize Multiplayer Service
   useEffect(() => {
+    if (roomNotFound) return;
+
     const service = new MultiplayerRoomService(
       roomId,
       {
@@ -121,6 +153,11 @@ export default function RoomMultiplayerPage({
           setErrorMessage(err);
           setTimeout(() => setErrorMessage(null), 3000);
         },
+        onKicked: (reason) => {
+          setWasKicked(true);
+          setKickedReason(reason);
+          sounds.playWrong();
+        },
       }
     );
 
@@ -130,7 +167,7 @@ export default function RoomMultiplayerPage({
     return () => {
       service.disconnect();
     };
-  }, [roomId, profile.id, profile.nickname, profile.avatarColor, profile.avatarFrame, isCreator, language]);
+  }, [roomId, profile.id, profile.nickname, profile.avatarColor, profile.avatarFrame, isCreator, language, roomNotFound]);
 
   // Turn timer countdown & automatic timeout enforcement
   useEffect(() => {
@@ -254,6 +291,22 @@ export default function RoomMultiplayerPage({
     setChatInput("");
   };
 
+  const handleKickPlayer = (playerId: string) => {
+    if (!isHost) return;
+    if (confirm("Bạn có chắc chắn muốn KÍCH người chơi này khỏi phòng?")) {
+      serviceRef.current?.kickPlayer(playerId);
+      sounds.playWrong();
+    }
+  };
+
+  const handleLeaveRoom = () => {
+    sounds.playClick();
+    if (isHost) {
+      RoomRegistry.unregisterRoom(roomId);
+    }
+    serviceRef.current?.disconnect();
+  };
+
   const myPlayer = gameState.players.find((p) => p.id === profile.id);
   const isHost = gameState.players.length > 0 ? (gameState.players[0].id === profile.id) : isCreator;
 
@@ -275,6 +328,59 @@ export default function RoomMultiplayerPage({
 
   const isWinner = gameState.winner?.id === profile.id;
   const hasRematchReady = gameState.rematchReadyIds.includes(profile.id);
+
+  if (roomNotFound) {
+    return (
+      <div className="relative min-h-[100dvh] pt-24 pb-8 px-4 flex items-center justify-center">
+        <div className="glass-card max-w-md w-full p-8 rounded-[36px] bg-background/90 backdrop-blur-2xl border border-rose-500/30 text-center space-y-6 shadow-2xl animate-in zoom-in-95">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-rose-500/10 text-rose-500 border border-rose-500/20 shadow-inner">
+            <AlertCircle className="h-10 w-10" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black text-foreground">Phòng Không Tồn Tại</h2>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Mã phòng <strong>#{roomId}</strong> không tồn tại hoặc chủ phòng đã giải tán phòng đấu!
+            </p>
+          </div>
+          <Link
+            href="/"
+            onClick={() => {
+              sounds.playClick();
+              openModal("createRoom");
+            }}
+            className="btn-wf-primary w-full h-12 rounded-2xl font-black text-primary-foreground flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-95 transition-all text-xs"
+          >
+            <ArrowLeft className="h-4 w-4" /> Xem Sảnh Phòng Đang Mở
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (wasKicked) {
+    return (
+      <div className="relative min-h-[100dvh] pt-24 pb-8 px-4 flex items-center justify-center">
+        <div className="glass-card max-w-md w-full p-8 rounded-[36px] bg-background/90 backdrop-blur-2xl border border-amber-500/30 text-center space-y-6 shadow-2xl animate-in zoom-in-95">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-3xl bg-amber-500/10 text-amber-500 border border-amber-500/20 shadow-inner">
+            <LogOut className="h-10 w-10" />
+          </div>
+          <div className="space-y-2">
+            <h2 className="text-2xl font-black text-foreground">Bạn Đã Bị Kích Khỏi Phòng</h2>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              {kickedReason || "Bạn đã bị chủ phòng kích khỏi phòng đấu."}
+            </p>
+          </div>
+          <Link
+            href="/"
+            onClick={() => sounds.playClick()}
+            className="btn-wf-primary w-full h-12 rounded-2xl font-black text-primary-foreground flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-95 transition-all text-xs"
+          >
+            <ArrowLeft className="h-4 w-4" /> Quay Về Trang Chủ
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (!isLoggedIn) {
     return (
@@ -315,7 +421,7 @@ export default function RoomMultiplayerPage({
         <div className="flex items-center gap-2 sm:gap-3">
           <Link
             href="/"
-            onClick={() => sounds.playClick()}
+            onClick={handleLeaveRoom}
             className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-muted/60 text-muted-foreground hover:bg-muted transition-colors cursor-pointer"
           >
             <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
@@ -323,7 +429,7 @@ export default function RoomMultiplayerPage({
           <div>
             <div className="flex items-center gap-1.5 sm:gap-2">
               <span className="px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-primary/10 text-primary font-black text-[11px] sm:text-xs border border-primary/20">
-                PHÒNG #{roomId} (ONLINE 🟢)
+                {roomInfo?.name || customRoomName} (#{roomId})
               </span>
               <span className="text-[11px] sm:text-xs font-bold text-muted-foreground hidden sm:inline">
                 {gameState.language === "vi" ? "Tiếng Việt" : "Tiếng Anh"} • {gameState.players.length} người
@@ -415,7 +521,19 @@ export default function RoomMultiplayerPage({
                       )}
                     </div>
                   </div>
-                  <span className="text-xs font-mono text-muted-foreground opacity-60">#{idx + 1}</span>
+                  <div className="flex items-center gap-2">
+                    {isHost && !p.isHost && (
+                      <button
+                        type="button"
+                        onClick={() => handleKickPlayer(p.id)}
+                        className="px-2.5 py-1 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 text-[11px] font-black border border-rose-500/30 cursor-pointer active:scale-95 transition-all shadow-sm"
+                        title="Kích người chơi này khỏi phòng"
+                      >
+                        Kích
+                      </button>
+                    )}
+                    <span className="text-xs font-mono text-muted-foreground opacity-60">#{idx + 1}</span>
+                  </div>
                 </div>
               ))}
             </div>

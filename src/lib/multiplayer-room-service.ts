@@ -95,6 +95,7 @@ export class MultiplayerRoomService {
   private onStateChange: (state: MultiplayerGameState) => void;
   private onChatReceive: (msg: ChatMessage) => void;
   private onWordReject: (err: string) => void;
+  private onKicked?: (reason: string) => void;
 
   private state: MultiplayerGameState;
 
@@ -106,6 +107,7 @@ export class MultiplayerRoomService {
       onStateChange: (state: MultiplayerGameState) => void;
       onChatReceive: (msg: ChatMessage) => void;
       onWordReject: (err: string) => void;
+      onKicked?: (reason: string) => void;
     }
   ) {
     this.roomId = roomId;
@@ -123,6 +125,7 @@ export class MultiplayerRoomService {
     this.onStateChange = callbacks.onStateChange;
     this.onChatReceive = callbacks.onChatReceive;
     this.onWordReject = callbacks.onWordReject;
+    this.onKicked = callbacks.onKicked;
 
     this.state = {
       roomId,
@@ -249,6 +252,17 @@ export class MultiplayerRoomService {
         .on("broadcast", { event: "chat_msg" }, ({ payload }) => {
           if (payload) {
             this.onChatReceive(payload);
+          }
+        })
+        .on("broadcast", { event: "player_kicked" }, ({ payload }) => {
+          if (payload?.kickedPlayerId === this.localPlayer.id) {
+            if (this.onKicked) {
+              this.onKicked("Bạn đã bị chủ phòng kích khỏi phòng đấu.");
+            }
+          } else if (payload?.kickedPlayerId) {
+            // Remove the kicked player from local players list
+            this.state.players = this.state.players.filter((p) => p.id !== payload.kickedPlayerId);
+            this.onStateChange({ ...this.state });
           }
         })
         .on("broadcast", { event: "word_rejected" }, ({ payload }) => {
@@ -563,6 +577,22 @@ export class MultiplayerRoomService {
       event: "game_state",
       payload: this.state,
     });
+  }
+
+  public kickPlayer(targetPlayerId: string) {
+    if (!this.localPlayer.isHost) return;
+    if (targetPlayerId === this.localPlayer.id) return;
+
+    // Send broadcast to kick the player
+    this.channel?.send({
+      type: "broadcast",
+      event: "player_kicked",
+      payload: { kickedPlayerId: targetPlayerId },
+    });
+
+    // Remove from local state
+    this.state.players = this.state.players.filter((p) => p.id !== targetPlayerId);
+    this.broadcastState();
   }
 
   public disconnect() {
