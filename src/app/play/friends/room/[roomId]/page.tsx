@@ -309,23 +309,23 @@ export default function RoomMultiplayerPage({
   }
 
   return (
-    <div className="relative min-h-[calc(100dvh-76px)] pt-20 md:pt-24 pb-8 px-4 sm:px-8 max-w-5xl mx-auto flex flex-col justify-between select-none">
+    <div className="relative min-h-[100dvh] pt-16 sm:pt-20 md:pt-24 pb-[max(1.25rem,env(safe-area-inset-bottom))] px-3 sm:px-6 md:px-8 max-w-5xl mx-auto flex flex-col justify-between select-none">
       {/* TOP HEADER CONTROLS */}
-      <div className="glass-card flex items-center justify-between gap-3 px-5 py-3.5 rounded-[28px] bg-background/70 backdrop-blur-xl border border-primary/20 shadow-md">
-        <div className="flex items-center gap-3">
+      <div className="glass-card flex flex-wrap items-center justify-between gap-2.5 px-3.5 sm:px-5 py-2.5 sm:py-3.5 rounded-[24px] sm:rounded-[28px] bg-background/70 backdrop-blur-xl border border-primary/20 shadow-md">
+        <div className="flex items-center gap-2 sm:gap-3">
           <Link
             href="/"
             onClick={() => sounds.playClick()}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted/60 text-muted-foreground hover:bg-muted transition-colors cursor-pointer"
+            className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-full bg-muted/60 text-muted-foreground hover:bg-muted transition-colors cursor-pointer"
           >
-            <ArrowLeft className="h-5 w-5" />
+            <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
           </Link>
           <div>
-            <div className="flex items-center gap-2">
-              <span className="px-3 py-1 rounded-full bg-primary/10 text-primary font-black text-xs border border-primary/20">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <span className="px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-primary/10 text-primary font-black text-[11px] sm:text-xs border border-primary/20">
                 PHÒNG #{roomId} (ONLINE 🟢)
               </span>
-              <span className="text-xs font-bold text-muted-foreground hidden sm:inline">
+              <span className="text-[11px] sm:text-xs font-bold text-muted-foreground hidden sm:inline">
                 {gameState.language === "vi" ? "Tiếng Việt" : "Tiếng Anh"} • {gameState.players.length} người
               </span>
             </div>
@@ -333,32 +333,32 @@ export default function RoomMultiplayerPage({
         </div>
 
         {/* Action buttons */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           <button
             type="button"
             onClick={() => setShowChatModal(true)}
-            className="flex items-center gap-1.5 h-10 px-3.5 rounded-full bg-muted/60 hover:bg-muted text-xs font-bold text-foreground cursor-pointer transition-colors border border-border/50"
+            className="flex items-center gap-1 h-9 sm:h-10 px-2.5 sm:px-3.5 rounded-full bg-muted/60 hover:bg-muted text-[11px] sm:text-xs font-bold text-foreground cursor-pointer transition-colors border border-border/50"
           >
-            <MessageCircle className="h-4 w-4 text-primary" />
-            <span className="hidden sm:inline">Chat ({chatMessages.length})</span>
+            <MessageCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" />
+            <span>Chat ({chatMessages.length})</span>
           </button>
 
           <button
             type="button"
             onClick={() => setShowSurrenderConfirm(true)}
-            className="flex items-center gap-1.5 h-10 px-4 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 text-xs font-bold cursor-pointer transition-colors border border-rose-500/30"
+            className="flex items-center gap-1 h-9 sm:h-10 px-2.5 sm:px-4 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 text-[11px] sm:text-xs font-bold cursor-pointer transition-colors border border-rose-500/30"
           >
-            <LogOut className="h-4 w-4" />
-            <span>Rời phòng</span>
+            <LogOut className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <span className="hidden sm:inline">Rời phòng</span>
           </button>
 
           <button
             type="button"
             onClick={handleCopyLink}
-            className="btn-wf-silver flex items-center gap-1.5 h-10 px-4 rounded-full text-xs font-bold text-foreground cursor-pointer shadow-sm"
+            className="btn-wf-silver flex items-center gap-1 h-9 sm:h-10 px-2.5 sm:px-4 rounded-full text-[11px] sm:text-xs font-bold text-foreground cursor-pointer shadow-sm"
           >
-            {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
-            <span className="hidden sm:inline">{copied ? "Đã sao chép!" : "Copy Link"}</span>
+            {copied ? <Check className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-primary" /> : <Copy className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
+            <span>{copied ? "Đã sao chép!" : "Copy"}</span>
           </button>
         </div>
       </div>

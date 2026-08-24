@@ -260,3 +260,20 @@
 .wordfight-scrollbar::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--primary) / 0.8);
 }
+
+/* Mobile & Touch Responsive Optimizations (iPhone, Android, Tablets, PC) */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button, a, input, select, textarea {
+  touch-action: manipulation;
+}
+
+.safe-pb {
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom, 0px));
+}
+
+.safe-pt {
+  padding-top: max(4.5rem, env(safe-area-inset-top, 0px));
+}

@@ -14,10 +14,10 @@ export function Header() {
     <>
       {/* Desktop Header */}
       <header className="fixed inset-x-0 top-0 z-[120] hidden md:block">
-        <div className="pointer-events-auto border-b bg-background/60 backdrop-blur-md transition-[border-color,background-color] duration-200 border-primary/20">
-          <div className="flex w-full items-center justify-between gap-6 px-6 lg:px-8 py-3 min-h-[76px]">
+        <div className="pointer-events-auto border-b bg-background/70 backdrop-blur-md transition-[border-color,background-color] duration-200 border-primary/20">
+          <div className="flex w-full items-center justify-between gap-4 px-4 sm:px-6 lg:px-8 py-2.5 min-h-[72px] max-w-7xl mx-auto">
             {/* Left elements */}
-            <div className="flex min-w-0 shrink-0 items-center gap-5">
+            <div className="flex min-w-0 shrink-0 items-center gap-4">
               <Link href="/" className="flex shrink-0 items-center">
                 <BrandLogo size="md" showText={true} />
               </Link>
@@ -26,25 +26,25 @@ export function Header() {
               <button
                 type="button"
                 onClick={() => openModal(isLoggedIn ? "profile" : "auth")}
-                className="flex min-w-0 items-center gap-3 rounded-full transition-transform duration-150 hover:scale-105 active:scale-[0.97] cursor-pointer text-left group ml-2 pl-3 border-l border-border/60"
+                className="flex min-w-0 items-center gap-2.5 rounded-full transition-transform duration-150 hover:scale-105 active:scale-[0.97] cursor-pointer text-left group ml-2 pl-3 border-l border-border/60"
               >
                 <div
-                  className={`flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full border-[2.5px] border-primary/70 bg-gradient-to-br ${profile.avatarColor} text-white shadow-sm`}
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border-[2.5px] border-primary/70 bg-gradient-to-br ${profile.avatarColor} text-white shadow-sm`}
                 >
-                  <span className="text-base font-black uppercase">{profile.nickname[0]}</span>
+                  <span className="text-sm font-black uppercase">{profile.nickname[0]}</span>
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className="text-[11px] font-semibold leading-none text-muted-foreground">
+                    <span className="text-[10px] font-semibold leading-none text-muted-foreground">
                       {isLoggedIn ? "Đã đăng nhập" : "Khách chơi"}
                     </span>
                     {isLoggedIn ? (
                       <span className="h-2 w-2 rounded-full bg-emerald-500 ring-2 ring-emerald-500/20" />
                     ) : (
-                      <span className="text-[10px] font-bold text-amber-500 uppercase">Đăng nhập</span>
+                      <span className="text-[9px] font-bold text-amber-500 uppercase">Đăng nhập</span>
                     )}
                   </div>
-                  <p className="max-w-[150px] truncate text-sm font-bold leading-tight text-foreground">
+                  <p className="max-w-[130px] lg:max-w-[160px] truncate text-sm font-bold leading-tight text-foreground">
                     {profile.nickname}
                   </p>
                 </div>
@@ -55,31 +55,31 @@ export function Header() {
                 type="button"
                 onClick={() => openModal("leaderboard")}
                 aria-label="Xếp hạng"
-                className="flex h-[44px] w-[44px] items-center justify-center hover:scale-110 active:scale-[0.97] transition-transform duration-150 cursor-pointer select-none"
+                className="flex h-10 w-10 items-center justify-center hover:scale-110 active:scale-[0.97] transition-transform duration-150 cursor-pointer select-none"
               >
                 <Image
                   src="/images/icon-leaderboard.avif"
                   alt="Xếp hạng"
-                  width={42}
-                  height={42}
-                  className="h-[42px] w-[42px] object-contain drop-shadow-[0_0_8px_hsl(var(--primary)/0.7)]"
+                  width={38}
+                  height={38}
+                  className="h-[38px] w-[38px] object-contain drop-shadow-[0_0_8px_hsl(var(--primary)/0.7)]"
                 />
               </button>
             </div>
 
             {/* Middle: Global Chat preview */}
-            <div className="min-w-0 flex-1 max-w-md">
+            <div className="min-w-0 flex-1 max-w-sm lg:max-w-md mx-2">
               <button
                 type="button"
                 onClick={() => openModal("globalChat")}
                 aria-label="Mở chat"
-                className="group flex h-12 w-full min-w-0 items-center gap-3 overflow-hidden rounded-full border border-primary/20 bg-background/50 backdrop-blur-sm px-4 text-left transition-[border-color,background-color] duration-150 hover:border-primary/50 hover:bg-background/70 cursor-pointer"
+                className="group flex h-11 w-full min-w-0 items-center gap-2.5 overflow-hidden rounded-full border border-primary/20 bg-background/60 backdrop-blur-sm px-3.5 text-left transition-[border-color,background-color] duration-150 hover:border-primary/50 hover:bg-background/80 cursor-pointer"
               >
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary">
-                  <MessageCircle className="h-4 w-4" />
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/20 text-primary">
+                  <MessageCircle className="h-3.5 w-3.5" />
                 </div>
                 <div className="flex shrink-0 items-center">
-                  <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">
+                  <div className="text-[10px] font-black uppercase tracking-wider text-primary">
                     Kênh chat
                   </div>
                 </div>
@@ -95,12 +95,12 @@ export function Header() {
             </div>
 
             {/* Right: Auth / Shop & Settings */}
-            <div className="flex shrink-0 items-center gap-2.5">
+            <div className="flex shrink-0 items-center gap-2">
               {!isLoggedIn && (
                 <button
                   type="button"
                   onClick={() => openModal("auth")}
-                  className="btn-wf-primary h-11 px-4 rounded-full font-black text-xs text-primary-foreground flex items-center gap-1.5 shadow-sm cursor-pointer active:scale-95 transition-all"
+                  className="btn-wf-primary h-10 px-3.5 rounded-full font-black text-xs text-primary-foreground flex items-center gap-1.5 shadow-sm cursor-pointer active:scale-95 transition-all"
                 >
                   <LogIn className="h-4 w-4" />
                   <span>Đăng Nhập</span>
@@ -111,109 +111,94 @@ export function Header() {
                 type="button"
                 onClick={() => openModal("shop")}
                 aria-label="Cửa hàng"
-                className="btn-wf-primary flex h-11 w-11 items-center justify-center rounded-full border-[2.5px] border-primary/70 text-primary-foreground transition-transform duration-150 hover:scale-105 active:scale-[0.97] cursor-pointer"
+                className="btn-wf-primary flex h-10 w-10 items-center justify-center rounded-full border-[2px] border-primary/70 text-primary-foreground transition-transform duration-150 hover:scale-105 active:scale-[0.97] cursor-pointer"
               >
-                <ShoppingBag className="h-5 w-5" />
+                <ShoppingBag className="h-4 w-4" />
               </button>
 
               <button
                 type="button"
                 onClick={() => openModal("settings")}
                 aria-label="Cài đặt"
-                className="btn-wf-silver flex h-11 w-11 items-center justify-center rounded-full border-[2.5px] border-[#ececec] text-gray-700 dark:text-gray-200 transition-transform duration-150 hover:scale-105 active:scale-[0.97] cursor-pointer"
+                className="btn-wf-silver flex h-10 w-10 items-center justify-center rounded-full border-[2px] border-[#ececec] text-gray-700 dark:text-gray-200 transition-transform duration-150 hover:scale-105 active:scale-[0.97] cursor-pointer"
               >
-                <Settings className="h-5 w-5" />
+                <Settings className="h-4 w-4" />
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Mobile Top Floating Bars */}
-      <div className="relative z-30 flex shrink-0 items-start justify-between px-4 pb-2 pt-4 md:hidden">
-        {/* Left Mobile: Brand + Profile & Leaderboard */}
-        <div className="flex flex-col items-start gap-3">
+      {/* Mobile Top Header (iPhone & Android Optimized) */}
+      <div className="fixed inset-x-0 top-0 z-[120] md:hidden pointer-events-auto bg-background/80 backdrop-blur-md border-b border-primary/15 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2 px-3 sm:px-4">
+        <div className="flex items-center justify-between gap-2">
+          {/* Left: Brand Logo */}
           <Link href="/" className="flex shrink-0 items-center">
             <BrandLogo size="sm" showText={true} />
           </Link>
 
-          <div className="flex items-center gap-2">
+          {/* Right: Actions Row */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Profile Avatar / Login */}
             <button
               type="button"
               onClick={() => openModal(isLoggedIn ? "profile" : "auth")}
-              className="flex cursor-pointer items-center gap-2 rounded-2xl transition-all active:scale-[0.97] text-left"
+              className="flex items-center gap-1.5 p-1 rounded-full bg-muted/50 border border-border/60 cursor-pointer active:scale-95 transition-all text-left"
             >
               <div
-                className={`flex h-[40px] w-[40px] shrink-0 items-center justify-center overflow-hidden rounded-full border-[2.5px] border-primary/70 bg-gradient-to-br ${profile.avatarColor} text-white shadow-sm`}
+                className={`flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br ${profile.avatarColor} text-white font-black text-xs`}
               >
-                <span className="text-sm font-black uppercase">{profile.nickname[0]}</span>
+                {profile.nickname[0]}
               </div>
-              <div className="min-w-0">
-                <p className="mb-0.5 text-[9px] font-bold leading-none text-muted-foreground">
-                  {isLoggedIn ? "Tài khoản" : "Đăng nhập"}
-                </p>
-                <p className="max-w-[110px] truncate text-xs font-bold leading-tight">
-                  {profile.nickname}
-                </p>
-              </div>
+              <span className="text-[11px] font-bold text-foreground truncate max-w-[65px] sm:max-w-[90px] pr-1.5">
+                {isLoggedIn ? profile.nickname : "Đăng nhập"}
+              </span>
             </button>
 
+            {/* Leaderboard */}
             <button
               type="button"
               onClick={() => openModal("leaderboard")}
               aria-label="Xếp hạng"
-              className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-full bg-muted/60 transition-transform duration-150 active:scale-[0.97]"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-muted/60 active:scale-90 transition-transform cursor-pointer"
             >
               <Image
                 src="/images/icon-leaderboard.avif"
                 alt="Xếp hạng"
-                width={28}
-                height={28}
-                className="h-6 w-6 object-contain drop-shadow-[0_0_6px_hsl(var(--primary)/0.7)]"
+                width={24}
+                height={24}
+                className="h-5 w-5 object-contain drop-shadow-sm"
               />
             </button>
-          </div>
-        </div>
 
-        {/* Right Mobile: Actions */}
-        <div className="flex shrink-0 flex-col items-end gap-2.5">
-          <div className="flex items-center gap-2">
-            {!isLoggedIn && (
-              <button
-                type="button"
-                onClick={() => openModal("auth")}
-                className="btn-wf-primary h-9 px-3 rounded-full text-xs font-black text-primary-foreground flex items-center gap-1 shadow-sm"
-              >
-                <LogIn className="h-3.5 w-3.5" />
-                <span>Đăng nhập</span>
-              </button>
-            )}
-
+            {/* Global Chat */}
             <button
               type="button"
               onClick={() => openModal("globalChat")}
               aria-label="Chat toàn cầu"
-              className="btn-wf-primary flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-primary-foreground active:scale-[0.97]"
+              className="btn-wf-primary flex h-8 w-8 items-center justify-center rounded-full text-primary-foreground active:scale-90 transition-transform cursor-pointer"
             >
               <MessageCircle className="h-4 w-4" />
             </button>
 
+            {/* Shop */}
             <button
               type="button"
               onClick={() => openModal("shop")}
               aria-label="Cửa hàng"
-              className="btn-wf-silver flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-foreground active:scale-[0.97]"
+              className="btn-wf-silver flex h-8 w-8 items-center justify-center rounded-full text-foreground active:scale-90 transition-transform cursor-pointer"
             >
-              <ShoppingBag className="h-4 w-4" />
+              <ShoppingBag className="h-3.5 w-3.5" />
             </button>
 
+            {/* Settings */}
             <button
               type="button"
               onClick={() => openModal("settings")}
               aria-label="Cài đặt"
-              className="btn-wf-silver flex h-9 w-9 cursor-pointer items-center justify-center rounded-full text-foreground active:scale-[0.97]"
+              className="btn-wf-silver flex h-8 w-8 items-center justify-center rounded-full text-foreground active:scale-90 transition-transform cursor-pointer"
             >
-              <Settings className="h-4 w-4" />
+              <Settings className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
