@@ -301,11 +301,43 @@ export default function RoomMultiplayerPage({
 
   const handleLeaveRoom = () => {
     sounds.playClick();
-    if (isHost) {
+    if (gameState.players.length <= 1) {
       RoomRegistry.unregisterRoom(roomId);
+    } else {
+      const other = gameState.players.find((p) => p.id !== profile.id);
+      if (other) {
+        RoomRegistry.updateRoom(roomId, {
+          hostId: other.id,
+          hostNickname: other.nickname,
+          hostAvatarColor: other.avatarColor,
+          playerCount: 1,
+        });
+      }
     }
     serviceRef.current?.disconnect();
   };
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (gameState.players.length <= 1) {
+        RoomRegistry.unregisterRoom(roomId);
+      } else {
+        const other = gameState.players.find((p) => p.id !== profile.id);
+        if (other) {
+          RoomRegistry.updateRoom(roomId, {
+            hostId: other.id,
+            hostNickname: other.nickname,
+            hostAvatarColor: other.avatarColor,
+            playerCount: 1,
+          });
+        }
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [roomId, gameState.players, profile.id]);
 
   const myPlayer = gameState.players.find((p) => p.id === profile.id);
   const isHost = gameState.players.length > 0 ? (gameState.players[0].id === profile.id) : isCreator;

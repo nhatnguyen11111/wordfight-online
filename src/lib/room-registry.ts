@@ -35,19 +35,47 @@ const memoryRooms = new Map<string, RoomInfo>();
 // Shared Realtime Channel for Lobby Room Broadcasts
 let lobbyChannel: RealtimeChannel | null = null;
 
+function getDisbandedRoomIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const list = JSON.parse(localStorage.getItem("wf_disbanded_rooms") || "[]");
+    return new Set(list);
+  } catch {
+    return new Set();
+  }
+}
+
+function addDisbandedRoomId(id: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const set = getDisbandedRoomIds();
+    set.add(id);
+    localStorage.setItem("wf_disbanded_rooms", JSON.stringify(Array.from(set)));
+  } catch {}
+}
+
 export const RoomRegistry = {
   /**
    * Register or update an active room
    */
   async registerRoom(room: RoomInfo): Promise<boolean> {
-    memoryRooms.set(room.id, room);
+    const cleanId = room.id.trim().toUpperCase();
+    const formattedRoom = { ...room, id: cleanId };
+    memoryRooms.set(cleanId, formattedRoom);
 
     // Save in local storage for fallback
     if (typeof window !== "undefined") {
       try {
         const stored = JSON.parse(localStorage.getItem("wf_active_rooms") || "{}");
-        stored[room.id] = room;
+        stored[cleanId] = formattedRoom;
         localStorage.setItem("wf_active_rooms", JSON.stringify(stored));
+
+        // Remove from disbanded if newly registered
+        const disbanded = getDisbandedRoomIds();
+        if (disbanded.has(cleanId)) {
+          disbanded.delete(cleanId);
+          localStorage.setItem("wf_disbanded_rooms", JSON.stringify(Array.from(disbanded)));
+        }
       } catch (e) {
         console.warn("Storage error:", e);
       }
@@ -56,8 +84,8 @@ export const RoomRegistry = {
     if (isSupabaseConfigured()) {
       try {
         await supabase.from("rooms").upsert({
-          id: room.id,
-          code: room.id,
+          id: cleanId,
+          code: cleanId,
           host_id: null,
           language: room.language,
           status: room.status,
@@ -68,7 +96,7 @@ export const RoomRegistry = {
     }
 
     // Broadcast room update to all lobby listeners with full payload
-    this.broadcastLobbyUpdate(room);
+    this.broadcastLobbyUpdate(formattedRoom);
     return true;
   },
 
@@ -84,14 +112,17 @@ export const RoomRegistry = {
   },
 
   /**
-   * Unregister / disband a room
+   * Unregister / disband a room when the last player leaves
    */
   async unregisterRoom(roomId: string): Promise<void> {
-    memoryRooms.delete(roomId);
+    const cleanId = roomId.trim().toUpperCase();
+    memoryRooms.delete(cleanId);
+    addDisbandedRoomId(cleanId);
 
     if (typeof window !== "undefined") {
       try {
         const stored = JSON.parse(localStorage.getItem("wf_active_rooms") || "{}");
+        delete stored[cleanId];
         delete stored[roomId];
         localStorage.setItem("wf_active_rooms", JSON.stringify(stored));
       } catch (e) {
@@ -101,13 +132,13 @@ export const RoomRegistry = {
 
     if (isSupabaseConfigured()) {
       try {
-        await supabase.from("rooms").delete().eq("id", roomId);
+        await supabase.from("rooms").delete().eq("id", cleanId);
       } catch (err) {
         console.warn("[RoomRegistry] DB delete error:", err);
       }
     }
 
-    this.broadcastLobbyUpdate();
+    this.broadcastLobbyUpdate(undefined, cleanId);
   },
 
   /**
@@ -115,6 +146,8 @@ export const RoomRegistry = {
    */
   async getRoom(roomId: string): Promise<RoomInfo | null> {
     const cleanId = roomId.trim().toUpperCase();
+    const disbanded = getDisbandedRoomIds();
+    if (disbanded.has(cleanId)) return null;
 
     // 1. Check in-memory
     if (memoryRooms.has(cleanId)) {
@@ -170,11 +203,12 @@ export const RoomRegistry = {
    */
   async listActiveRooms(): Promise<RoomInfo[]> {
     const map = new Map<string, RoomInfo>();
+    const disbanded = getDisbandedRoomIds();
 
     // From memory
     memoryRooms.forEach((r, id) => {
-      // Filter out stale rooms older than 3 hours
-      if (Date.now() - r.createdAt < 3 * 60 * 60 * 1000) {
+      // Filter out stale rooms older than 3 hours or disbanded
+      if (!disbanded.has(id) && Date.now() - r.createdAt < 3 * 60 * 60 * 1000) {
         map.set(id, r);
       }
     });
@@ -184,7 +218,7 @@ export const RoomRegistry = {
       try {
         const stored = JSON.parse(localStorage.getItem("wf_active_rooms") || "{}");
         Object.values(stored).forEach((r: any) => {
-          if (r?.id && Date.now() - (r.createdAt || 0) < 3 * 60 * 60 * 1000) {
+          if (r?.id && !disbanded.has(r.id) && Date.now() - (r.createdAt || 0) < 3 * 60 * 60 * 1000) {
             map.set(r.id, r as RoomInfo);
           }
         });
@@ -199,7 +233,7 @@ export const RoomRegistry = {
         const { data } = await supabase.from("rooms").select("*").order("created_at", { ascending: false }).limit(20);
         if (data) {
           data.forEach((d: any) => {
-            if (!map.has(d.id)) {
+            if (!disbanded.has(d.id) && !map.has(d.id)) {
               map.set(d.id, {
                 id: d.id,
                 name: `Phòng Chiến #${d.id}`,
@@ -246,7 +280,17 @@ export const RoomRegistry = {
     }
 
     const handler = ({ payload }: any) => {
-      if (payload?.room?.id) {
+      if (payload?.disbandedId) {
+        memoryRooms.delete(payload.disbandedId);
+        addDisbandedRoomId(payload.disbandedId);
+        if (typeof window !== "undefined") {
+          try {
+            const stored = JSON.parse(localStorage.getItem("wf_active_rooms") || "{}");
+            delete stored[payload.disbandedId];
+            localStorage.setItem("wf_active_rooms", JSON.stringify(stored));
+          } catch {}
+        }
+      } else if (payload?.room?.id) {
         memoryRooms.set(payload.room.id, payload.room);
         if (typeof window !== "undefined") {
           try {
@@ -266,12 +310,12 @@ export const RoomRegistry = {
     };
   },
 
-  broadcastLobbyUpdate(room?: RoomInfo) {
+  broadcastLobbyUpdate(room?: RoomInfo, disbandedId?: string) {
     if (lobbyChannel) {
       lobbyChannel.send({
         type: "broadcast",
         event: "rooms_updated",
-        payload: { room, timestamp: Date.now() },
+        payload: { room, disbandedId, timestamp: Date.now() },
       });
     }
   },

@@ -3,6 +3,7 @@
 import { supabase, isSupabaseConfigured } from "./supabase";
 import { RealtimeChannel } from "@supabase/supabase-js";
 import { GeminiAI } from "./gemini-ai";
+import { RoomRegistry } from "./room-registry";
 
 export type RPSChoice = "rock" | "paper" | "scissors";
 
@@ -297,7 +298,12 @@ export class MultiplayerRoomService {
 
   // Ensure ONLY the room creator/first player is host, and all guests are guests
   private normalizeAndBroadcastPlayers(list: RoomPlayer[]) {
-    if (list.length === 0) return;
+    if (list.length === 0) {
+      RoomRegistry.unregisterRoom(this.roomId);
+      return;
+    }
+
+    const wasHostBefore = this.localPlayer.isHost;
 
     // Find host
     const hostIdx = list.findIndex((p) => p.isHost);
@@ -321,6 +327,24 @@ export class MultiplayerRoomService {
     if (me) {
       this.localPlayer.isHost = me.isHost;
       this.localPlayer.isReady = me.isReady;
+
+      // If local player was just promoted to new Host!
+      if (!wasHostBefore && me.isHost) {
+        this.onChatReceive({
+          id: String(Date.now()),
+          sender: "Hệ Thống",
+          text: "👑 Chủ phòng cũ đã rời đi. Bạn hiện là Chủ Phòng mới của phòng này!",
+          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        });
+
+        // Update registry with new host info & player count
+        RoomRegistry.updateRoom(this.roomId, {
+          hostId: me.id,
+          hostNickname: me.nickname,
+          hostAvatarColor: me.avatarColor,
+          playerCount: list.length,
+        });
+      }
     }
 
     this.state.players = list;
