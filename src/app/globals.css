@@ -60,6 +60,7 @@
 
 @theme {
   --font-sans: var(--font-nunito);
+  --font-brand: var(--font-baloo), var(--font-nunito), system-ui, sans-serif;
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
   --color-primary: hsl(var(--primary));

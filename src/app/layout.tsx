@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Nunito } from "next/font/google";
+import { Nunito, Baloo_2 } from "next/font/google";
 import "./globals.css";
 import { GameProvider } from "@/lib/game-context";
 import { Header } from "@/components/header";
@@ -19,6 +19,13 @@ const nunito = Nunito({
   display: "swap",
 });
 
+const baloo2 = Baloo_2({
+  subsets: ["latin", "vietnamese"],
+  weight: ["500", "600", "700", "800"],
+  variable: "--font-baloo",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
   title: "Nối Chữ Online - Đấu Trường Trí Tuệ Nối Từ & Đoán Chữ Đỉnh Cao",
   description:
@@ -35,7 +42,7 @@ export const metadata: Metadata = {
     "game trí tuệ online",
   ],
   icons: {
-    icon: "/images/logo-header.avif",
+    icon: "/images/logo/noi-chu-logo.jpg",
   },
 };
 
@@ -45,8 +52,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" className={`${nunito.variable} h-full antialiased font-sans`}>
-      <body className="h-full font-normal antialiased bg-background text-foreground select-none overflow-x-hidden">
+    <html lang="vi" className={`${nunito.variable} ${baloo2.variable} h-full antialiased font-sans`}>
+      <body className="h-full font-normal antialiased bg-background text-foreground select-none overflow-x-hidden font-sans">
         <GameProvider>
           <div className="relative flex min-h-screen w-full flex-col">
             <div aria-hidden="true" className="wf-app-static-background" />
