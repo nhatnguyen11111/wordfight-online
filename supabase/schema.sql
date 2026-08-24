@@ -1,9 +1,9 @@
 -- ==============================================================================
--- SUPABASE DATABASE SCHEMA WITH USER AUTHENTICATION FOR WORDFIGHT ONLINE
+-- SUPABASE DATABASE SCHEMA WITH USER AUTHENTICATION & ZERO RATE LIMIT SYSTEM
 -- Chạy toàn bộ script này trong SQL Editor trên Supabase Dashboard
 -- ==============================================================================
 
--- 1. Bảng User Profiles liên kết với auth.users
+-- 1. Bảng User Profiles liên kết với auth.users hoặc tài khoản độc lập
 CREATE TABLE IF NOT EXISTS public.profiles (
   id TEXT PRIMARY KEY,
   email TEXT,
@@ -15,9 +15,13 @@ CREATE TABLE IF NOT EXISTS public.profiles (
   total_wins INTEGER NOT NULL DEFAULT 0,
   total_games INTEGER NOT NULL DEFAULT 0,
   highest_streak INTEGER NOT NULL DEFAULT 0,
+  password_hash TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
+
+-- Đảm bảo cột password_hash tồn tại nếu bảng profiles đã được tạo trước đó
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS password_hash TEXT;
 
 -- 2. Bảng Tiến Độ Màn Chơi (Level Progress)
 CREATE TABLE IF NOT EXISTS public.levels_progress (
@@ -60,6 +64,7 @@ CREATE INDEX IF NOT EXISTS idx_levels_progress_user ON public.levels_progress(us
 CREATE INDEX IF NOT EXISTS idx_ai_vocabulary_lookup ON public.ai_vocabulary(language, word);
 CREATE INDEX IF NOT EXISTS idx_ai_vocabulary_syl ON public.ai_vocabulary(language, first_syllable);
 CREATE INDEX IF NOT EXISTS idx_profiles_email ON public.profiles(email);
+CREATE INDEX IF NOT EXISTS idx_profiles_nickname ON public.profiles(nickname);
 
 -- Row Level Security (RLS) Policies
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
@@ -68,17 +73,31 @@ ALTER TABLE public.ai_vocabulary ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rooms ENABLE ROW LEVEL SECURITY;
 
 -- Allow public read and write (anon key access)
+DROP POLICY IF EXISTS "Allow public read profiles" ON public.profiles;
 CREATE POLICY "Allow public read profiles" ON public.profiles FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public insert profiles" ON public.profiles;
 CREATE POLICY "Allow public insert profiles" ON public.profiles FOR INSERT WITH CHECK (true);
+
+DROP POLICY IF EXISTS "Allow public update profiles" ON public.profiles;
 CREATE POLICY "Allow public update profiles" ON public.profiles FOR UPDATE USING (true);
 
+DROP POLICY IF EXISTS "Allow public read levels_progress" ON public.levels_progress;
 CREATE POLICY "Allow public read levels_progress" ON public.levels_progress FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public insert/update levels_progress" ON public.levels_progress;
 CREATE POLICY "Allow public insert/update levels_progress" ON public.levels_progress FOR ALL USING (true);
 
+DROP POLICY IF EXISTS "Allow public read ai_vocabulary" ON public.ai_vocabulary;
 CREATE POLICY "Allow public read ai_vocabulary" ON public.ai_vocabulary FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public insert ai_vocabulary" ON public.ai_vocabulary;
 CREATE POLICY "Allow public insert ai_vocabulary" ON public.ai_vocabulary FOR INSERT WITH CHECK (true);
 
+DROP POLICY IF EXISTS "Allow public read rooms" ON public.rooms;
 CREATE POLICY "Allow public read rooms" ON public.rooms FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public insert/update rooms" ON public.rooms;
 CREATE POLICY "Allow public insert/update rooms" ON public.rooms FOR ALL USING (true);
 
 -- Trigger: Tự động tạo bản ghi Profile khi người dùng đăng ký qua Supabase Auth

@@ -18,7 +18,7 @@ export function AuthModal() {
   const { activeModal, closeModal, login, register } = useGame();
 
   const [tab, setTab] = useState<"login" | "register">("login");
-  const [email, setEmail] = useState("");
+  const [emailOrUsername, setEmailOrUsername] = useState("");
   const [password, setPassword] = useState("");
   const [nickname, setNickname] = useState("");
   const [selectedColor, setSelectedColor] = useState(AVATAR_COLORS[0].value);
@@ -34,18 +34,15 @@ export function AuthModal() {
     setErrorMessage(null);
     setSuccessMessage(null);
 
-    if (!email.trim() || !password.trim()) {
-      setErrorMessage("Vui lòng điền đầy đủ Email và Mật khẩu!");
+    const ident = emailOrUsername.trim();
+    if (!ident || !password.trim()) {
+      setErrorMessage("Vui lòng điền đầy đủ Tên tài khoản/Email và Mật khẩu!");
       sounds.playWrong();
       return;
     }
 
     if (tab === "register") {
-      if (!nickname.trim()) {
-        setErrorMessage("Vui lòng nhập Tên Nhân Vật (Nickname)!");
-        sounds.playWrong();
-        return;
-      }
+      const nick = nickname.trim() || ident;
       if (password.length < 6) {
         setErrorMessage("Mật khẩu phải có tối thiểu 6 ký tự!");
         sounds.playWrong();
@@ -53,7 +50,7 @@ export function AuthModal() {
       }
 
       setLoading(true);
-      const res = await register(email.trim(), password, nickname.trim(), selectedColor);
+      const res = await register(ident, password, nick, selectedColor);
       setLoading(false);
 
       if (res.success) {
@@ -68,7 +65,7 @@ export function AuthModal() {
       }
     } else {
       setLoading(true);
-      const res = await login(email.trim(), password);
+      const res = await login(ident, password);
       setLoading(false);
 
       if (res.success) {
@@ -79,7 +76,7 @@ export function AuthModal() {
         }, 1000);
       } else {
         sounds.playWrong();
-        setErrorMessage(res.error || "Email hoặc Mật khẩu không chính xác!");
+        setErrorMessage(res.error || "Tài khoản hoặc Mật khẩu không chính xác!");
       }
     }
   };
@@ -159,7 +156,7 @@ export function AuthModal() {
               {/* Nickname input */}
               <div className="space-y-1">
                 <label className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">
-                  Tên Nhân Vật (Nickname)
+                  Tên Hiển Thị (Nickname)
                 </label>
                 <div className="relative">
                   <User className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -198,19 +195,19 @@ export function AuthModal() {
             </>
           )}
 
-          {/* Email input */}
+          {/* Email or Username input */}
           <div className="space-y-1">
             <label className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">
-              Địa Chỉ Email
+              {tab === "register" ? "Email hoặc Tên Tài Khoản" : "Email hoặc Tên Đăng Nhập"}
             </label>
             <div className="relative">
               <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
-                type="email"
+                type="text"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@example.com"
+                value={emailOrUsername}
+                onChange={(e) => setEmailOrUsername(e.target.value)}
+                placeholder="VD: user123 hoặc name@example.com"
                 className="w-full h-11 pl-10 pr-4 rounded-2xl border-2 border-border/80 bg-muted/30 text-xs font-bold text-foreground focus:border-primary focus:outline-none transition-colors"
               />
             </div>
@@ -244,7 +241,7 @@ export function AuthModal() {
           {tab === "register" && (
             <div className="flex items-center gap-2 p-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-[11px] font-bold text-amber-600">
               <Sparkles className="h-4 w-4 shrink-0 text-amber-500" />
-              <span>Đăng ký ngay hôm nay nhận ngay 50 💎 Kim Cương khởi nghiệp!</span>
+              <span>Đăng ký ngay nhận ngay 50 💎 Kim Cương khởi nghiệp!</span>
             </div>
           )}
 
