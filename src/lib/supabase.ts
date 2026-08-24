@@ -440,4 +440,58 @@ export const SupabaseService = {
       console.warn("[Supabase] saveAiVocabulary error:", err);
     }
   },
+
+  // ===================== GLOBAL LIVE CHAT =====================
+  async fetchGlobalChatMessages(limit = 50): Promise<Array<{ id: string; sender: string; avatarColor: string; text: string; time: string }>> {
+    if (!isSupabaseConfigured()) return [];
+
+    try {
+      const { data, error } = await supabase
+        .from("global_chat_messages")
+        .select("*")
+        .order("created_at", { ascending: true })
+        .limit(limit);
+
+      if (error || !data) return [];
+      return data.map((m: any) => ({
+        id: m.id,
+        sender: m.sender,
+        avatarColor: m.avatar_color || "from-emerald-400 to-green-600",
+        text: m.text,
+        time: new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      }));
+    } catch (err) {
+      console.warn("[Supabase] fetchGlobalChatMessages error:", err);
+      return [];
+    }
+  },
+
+  async sendGlobalChatMessage(sender: string, avatarColor: string, text: string, userId?: string) {
+    if (!isSupabaseConfigured()) return null;
+
+    try {
+      const { data, error } = await supabase
+        .from("global_chat_messages")
+        .insert({
+          user_id: userId || null,
+          sender,
+          avatar_color: avatarColor,
+          text,
+        })
+        .select()
+        .single();
+
+      if (error || !data) return null;
+      return {
+        id: data.id,
+        sender: data.sender,
+        avatarColor: data.avatar_color,
+        text: data.text,
+        time: new Date(data.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      };
+    } catch (err) {
+      console.warn("[Supabase] sendGlobalChatMessage error:", err);
+      return null;
+    }
+  },
 };

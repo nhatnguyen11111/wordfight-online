@@ -59,18 +59,30 @@ CREATE TABLE IF NOT EXISTS public.rooms (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- 5. Bảng Tin Nhắn Kênh Chat Toàn Cầu (Global Live Chat Messages)
+CREATE TABLE IF NOT EXISTS public.global_chat_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id TEXT,
+  sender TEXT NOT NULL,
+  avatar_color TEXT NOT NULL DEFAULT 'from-emerald-400 to-green-600',
+  text TEXT NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
 -- Indexes for high performance
 CREATE INDEX IF NOT EXISTS idx_levels_progress_user ON public.levels_progress(user_id, game_mode);
 CREATE INDEX IF NOT EXISTS idx_ai_vocabulary_lookup ON public.ai_vocabulary(language, word);
 CREATE INDEX IF NOT EXISTS idx_ai_vocabulary_syl ON public.ai_vocabulary(language, first_syllable);
 CREATE INDEX IF NOT EXISTS idx_profiles_email ON public.profiles(email);
 CREATE INDEX IF NOT EXISTS idx_profiles_nickname ON public.profiles(nickname);
+CREATE INDEX IF NOT EXISTS idx_global_chat_time ON public.global_chat_messages(created_at);
 
 -- Row Level Security (RLS) Policies
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.levels_progress ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ai_vocabulary ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.rooms ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.global_chat_messages ENABLE ROW LEVEL SECURITY;
 
 -- Allow public read and write (anon key access)
 DROP POLICY IF EXISTS "Allow public read profiles" ON public.profiles;
@@ -99,6 +111,12 @@ CREATE POLICY "Allow public read rooms" ON public.rooms FOR SELECT USING (true);
 
 DROP POLICY IF EXISTS "Allow public insert/update rooms" ON public.rooms;
 CREATE POLICY "Allow public insert/update rooms" ON public.rooms FOR ALL USING (true);
+
+DROP POLICY IF EXISTS "Allow public read global_chat_messages" ON public.global_chat_messages;
+CREATE POLICY "Allow public read global_chat_messages" ON public.global_chat_messages FOR SELECT USING (true);
+
+DROP POLICY IF EXISTS "Allow public insert global_chat_messages" ON public.global_chat_messages;
+CREATE POLICY "Allow public insert global_chat_messages" ON public.global_chat_messages FOR INSERT WITH CHECK (true);
 
 -- Trigger: Tự động tạo bản ghi Profile khi người dùng đăng ký qua Supabase Auth
 CREATE OR REPLACE FUNCTION public.handle_new_user()
