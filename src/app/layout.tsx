@@ -20,18 +20,19 @@ const nunito = Nunito({
 });
 
 export const metadata: Metadata = {
-  title: "Trò Chơi Nối Từ Online - Game Nối Chữ 1vs1 | WordFight",
+  title: "Nối Chữ Online - Đấu Trường Trí Tuệ Nối Từ & Đoán Chữ Đỉnh Cao",
   description:
-    "Tìm kiếm nối từ game vui? Truy cập WordFight để chơi nối từ online miễn phí ngay. Thử thách bản thân thành vua nối từ qua các chế độ nối từ online solo, nối từ với máy hay rủ bạn bè nối từ 2 người.",
+    "Trải nghiệm game Nối Chữ Online miễn phí số 1 Việt Nam. Đấu trường trí tuệ đối kháng 1vs1, solo cùng bạn bè, luyện tập cùng AI thông minh và chinh phục Vua Tiếng Việt!",
   keywords: [
-    "word fight",
-    "nối từ",
-    "game nối từ",
+    "nối chữ online",
+    "nối từ online",
+    "game nối chữ",
+    "đấu từ trí tuệ",
     "vua tiếng việt",
     "word chain game",
     "nối từ tiếng việt",
     "nối từ tiếng anh",
-    "game đấu từ online",
+    "game trí tuệ online",
   ],
   icons: {
     icon: "/images/logo-header.avif",

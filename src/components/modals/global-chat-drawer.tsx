@@ -18,7 +18,7 @@ interface ChatMessage {
 const DEFAULT_WELCOME_MESSAGES: ChatMessage[] = [
   { id: "1", sender: "Minh Quân", avatarColor: "from-blue-400 to-indigo-600", text: "Ai vào phòng solo nối từ tiếng Việt không?", time: "14:20" },
   { id: "2", sender: "Linh Đan", avatarColor: "from-purple-400 to-pink-600", text: "Vừa phá đảo xong màn 25 Vua Tiếng Việt, câu cuối hay quá 😂", time: "14:22" },
-  { id: "3", sender: "Admin WordFight", avatarColor: "from-amber-400 to-orange-600", text: "Chào mừng các chiến binh đến với Kênh Chat Toàn Cầu WordFight!", time: "14:28" },
+  { id: "3", sender: "Admin Nối Chữ", avatarColor: "from-emerald-400 to-teal-600", text: "Chào mừng các chiến binh đến với Kênh Chat Toàn Cầu Nối Chữ Online!", time: "14:28" },
 ];
 
 export function GlobalChatDrawer() {

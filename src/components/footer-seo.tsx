@@ -7,22 +7,22 @@ export function FooterSEO() {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <section className="relative z-10 w-full px-4 py-8 max-w-5xl mx-auto text-left" aria-label="Về Word Fight">
+    <section className="relative z-10 w-full px-4 py-8 max-w-5xl mx-auto text-left" aria-label="Về Nối Chữ Online">
       <div className="rounded-[28px] border border-primary/20 bg-background/50 backdrop-blur-md p-6 shadow-sm">
         <h2 className="text-lg font-black text-foreground mb-3">
-          Trải Nghiệm Game Nối Từ & Vua Tiếng Việt Online Miễn Phí
+          Trải Nghiệm Game Nối Chữ & Vua Tiếng Việt Online Miễn Phí
         </h2>
 
         <div className={`relative overflow-hidden transition-all duration-300 ${expanded ? "max-h-none" : "max-h-[110px]"}`}>
           <div className="space-y-4 text-xs sm:text-sm text-muted-foreground leading-relaxed">
             <p>
-              Trong kỷ nguyên số, trải nghiệm những giờ phút thư giãn cùng bạn bè thông qua việc chơi game nối từ online là một phương pháp tuyệt vời để vừa giải trí vừa trau dồi vốn từ. Nếu bạn đang tìm kiếm một nền tảng chơi nối từ tiếng Việt hay nối từ tiếng Anh mượt mà, tiện lợi mà không cần cài đặt phức tạp, <strong>Word Fight</strong> là một lựa chọn hoàn hảo.
+              Trong kỷ nguyên số, trải nghiệm những giờ phút thư giãn cùng bạn bè thông qua việc chơi game nối từ online là một phương pháp tuyệt vời để vừa giải trí vừa trau dồi vốn từ. Nếu bạn đang tìm kiếm một nền tảng chơi nối chữ tiếng Việt hay nối từ tiếng Anh mượt mà, tiện lợi mà không cần cài đặt phức tạp, <strong>Nối Chữ Online</strong> là sự lựa chọn số 1.
             </p>
             <p>
-              Khác với nhiều trò chơi nối từ truyền thống chỉ tập trung vào giải trí, Word Fight được thiết kế để giúp người học rèn phản xạ từ vựng tiếng Anh và tiếng Việt thông qua các trận đấu thời gian thực. Bằng việc tối ưu hóa giao diện và trải nghiệm, nền tảng hướng tới mục tiêu hỗ trợ bạn nâng cấp tư duy ngôn ngữ một cách tự nhiên nhất.
+              Khác với nhiều trò chơi nối từ truyền thống chỉ tập trung vào giải trí đơn thuần, <strong>Nối Chữ Online</strong> được thiết kế tối ưu với công nghệ AI thông minh nhằm giúp người chơi rèn phản xạ từ vựng tiếng Anh và tiếng Việt qua các trận đấu thời gian thực.
             </p>
             <h3 className="font-bold text-foreground text-sm">
-              Khám Phá Các Chế Độ Chơi Hấp Dẫn Trên Word Fight:
+              Khám Phá Các Chế Độ Chơi Hấp Dẫn Trên Nối Chữ Online:
             </h3>
             <ul className="list-disc list-inside space-y-1.5 pl-2">
               <li>
@@ -63,7 +63,7 @@ export function FooterSEO() {
       </div>
 
       <p className="mt-6 text-center text-xs text-muted-foreground">
-        © 2026 WordFight. All rights reserved. Game Nối Chữ Online & Vua Tiếng Việt.
+        © 2026 Nối Chữ Online. Bản quyền thuộc về Nối Chữ Online. All rights reserved.
       </p>
     </section>
   );

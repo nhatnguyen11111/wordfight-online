@@ -3,10 +3,11 @@
 import React from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Crown, Plus, Lock } from "lucide-react";
+import { Crown, Plus, Lock, Sparkles, Swords, Zap } from "lucide-react";
 import { useGame } from "@/lib/game-context";
 import { FooterSEO } from "@/components/footer-seo";
 import { sounds } from "@/lib/sound-effects";
+import { BrandLogo } from "@/components/brand-logo";
 
 export default function Home() {
   const { vuaLevels, viLevels, enLevels, isLoggedIn, openModal } = useGame();
@@ -46,22 +47,22 @@ export default function Home() {
 
   return (
     <div className="relative flex min-h-[calc(100dvh-76px)] flex-col justify-between pt-20 md:pt-24 pb-8 px-4 sm:px-8">
-      <h1 className="sr-only">Vua Nối Từ Online - WordFight</h1>
+      <h1 className="sr-only">Nối Chữ Online - Đấu Trường Trí Tuệ Nối Từ & Đoán Chữ</h1>
 
       {/* Main Hero & Game Mode Grid */}
       <div className="mx-auto flex w-full max-w-[1400px] flex-1 flex-col items-center justify-center gap-8 xl:flex-row xl:gap-14 my-auto">
-        {/* 3D Brand Logo */}
-        <div className="flex w-full flex-col items-center justify-center xl:flex-[0_0_340px]">
-          <div className="wf-home-logo-alive cursor-pointer select-none">
-            <Image
-              src="/images/logo/main-logo-3d.avif"
-              alt="Word Fight"
-              width={360}
-              height={180}
-              priority
-              className="w-[260px] sm:w-[320px] xl:w-[360px] h-auto object-contain"
-            />
+        {/* 3D Brand Logo & Hero Banner */}
+        <div className="flex w-full flex-col items-center justify-center text-center xl:items-start xl:text-left xl:flex-[0_0_420px] space-y-4">
+          <div className="flex flex-col items-center xl:items-start gap-3">
+            <BrandLogo size="hero" showText={true} />
+            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-black">
+              <Sparkles className="h-3.5 w-3.5" />
+              <span>Đấu Trường Trực Tuyến 2026</span>
+            </div>
           </div>
+          <p className="text-xs sm:text-sm text-muted-foreground font-medium max-w-md leading-relaxed">
+            Chinh phục từ vựng phong phú, rèn luyện phản xạ ngôn ngữ và so tài đỉnh cao 1vs1 trong thời gian thực cùng bạn bè!
+          </p>
         </div>
 
         {/* Game Mode Cards Grid */}
@@ -86,7 +87,7 @@ export default function Home() {
                     Vua Tiếng Việt
                   </p>
                   <span className="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black tracking-wide bg-[#fff4cf] text-[#b45309] border border-[#f5c76a] shadow-sm">
-                    Mới
+                    30 Level
                   </span>
                 </div>
 
@@ -204,13 +205,13 @@ export default function Home() {
                 <Plus className="h-6 w-6 stroke-[2.5]" />
               </div>
               <span className="rounded-full border border-[#ffd08a] bg-[#fff4df] dark:bg-amber-950/40 dark:border-amber-700 px-2 py-0.5 text-[8px] font-black uppercase text-[#c56a12] dark:text-amber-300 mb-1">
-                Challenge
+                Phòng Đấu
               </span>
               <p className="text-sm font-black text-foreground leading-tight">
                 Tạo / tìm phòng
               </p>
               <p className="text-[10px] font-semibold text-muted-foreground mt-0.5">
-                Chơi cùng bạn bè
+                Solo cùng bạn bè
               </p>
             </button>
           </div>
