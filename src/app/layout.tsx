@@ -52,7 +52,15 @@ export const metadata: Metadata = {
     type: "website",
   },
   icons: {
-    icon: "/images/logo/noi-chu-logo-transparent.png",
+    icon: [
+      { url: "/favicon.ico" },
+      { url: "/icon.png", type: "image/png" },
+    ],
+    shortcut: ["/favicon.ico"],
+    apple: [
+      { url: "/apple-icon.png" },
+      { url: "/apple-touch-icon.png" },
+    ],
   },
 };
 
