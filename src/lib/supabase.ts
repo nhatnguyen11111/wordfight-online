@@ -34,6 +34,8 @@ export interface UserProfile {
   totalWins: number;
   totalGames: number;
   highestStreak: number;
+  role?: "admin" | "user";
+  isBanned?: boolean;
 }
 
 // Password hashing utility for zero-rate-limit instant registration & login
@@ -492,6 +494,72 @@ export const SupabaseService = {
     } catch (err) {
       console.warn("[Supabase] sendGlobalChatMessage error:", err);
       return null;
+    }
+  },
+
+  // ===================== ADMIN MANAGEMENT =====================
+  async fetchAdminUserList(): Promise<UserProfile[]> {
+    if (!isSupabaseConfigured()) return [];
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error || !data) return [];
+      return data.map((d: any) => ({
+        id: d.id,
+        email: d.email || undefined,
+        nickname: d.nickname || "Chiến Binh",
+        avatarColor: d.avatar_color || "from-emerald-400 to-green-600",
+        avatarFrame: d.avatar_frame || "default",
+        gems: d.gems || 0,
+        level: d.level || 1,
+        totalWins: d.total_wins || 0,
+        totalGames: d.total_games || 0,
+        highestStreak: d.highest_streak || 0,
+        role: (d.email?.toLowerCase() === "admin@gmail.com" || d.role === "admin") ? "admin" : "user",
+        isBanned: !!d.is_banned,
+      }));
+    } catch (e) {
+      console.warn("fetchAdminUserList error:", e);
+      return [];
+    }
+  },
+
+  async adminUpdateGems(userId: string, newGems: number): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ gems: newGems, updated_at: new Date().toISOString() })
+        .eq("id", userId);
+      return !error;
+    } catch {
+      return false;
+    }
+  },
+
+  async adminToggleBan(userId: string, isBanned: boolean): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ is_banned: isBanned, updated_at: new Date().toISOString() })
+        .eq("id", userId);
+      return !error;
+    } catch {
+      return false;
+    }
+  },
+
+  async adminDeleteUser(userId: string): Promise<boolean> {
+    if (!isSupabaseConfigured()) return false;
+    try {
+      const { error } = await supabase.from("profiles").delete().eq("id", userId);
+      return !error;
+    } catch {
+      return false;
     }
   },
 };

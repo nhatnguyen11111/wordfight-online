@@ -3,10 +3,37 @@ import { WordEngine } from "./dictionary/word-engine";
 import { VIETNAMESE_WORDS, VIETNAMESE_WORDS_SET } from "./dictionary/vietnamese-words";
 import { ENGLISH_WORDS, ENGLISH_WORDS_SET } from "./dictionary/english-words";
 
-const API_KEY =
+const DEFAULT_API_KEY =
   process.env.NEXT_PUBLIC_GEMINI_API_KEY ||
   process.env.GEMINI_API_KEY ||
   "";
+
+export function getActiveGeminiApiKey(): string {
+  if (typeof window !== "undefined") {
+    const custom = localStorage.getItem("admin_gemini_api_key");
+    if (custom && custom.trim().length > 10) return custom.trim();
+  }
+  return DEFAULT_API_KEY;
+}
+
+export function setActiveGeminiApiKey(key: string): void {
+  if (typeof window !== "undefined") {
+    if (key.trim()) {
+      localStorage.setItem("admin_gemini_api_key", key.trim());
+    } else {
+      localStorage.removeItem("admin_gemini_api_key");
+    }
+  }
+}
+
+// In-memory request & token tracking for Admin Dashboard
+let totalCallsCount = 0;
+let successCallsCount = 0;
+let failedCallsCount = 0;
+let estimatedTokensUsed = 0;
+let lastLatencyMs = 0;
+let lastCallTimestamp: number | null = null;
+let lastErrorMessage: string | null = null;
 
 const MODELS_PRIORITY = ["gemini-flash-lite-latest", "gemini-3.5-flash-lite", "gemini-2.5-flash"];
 
@@ -35,30 +62,55 @@ const VIETNAMESE_LETTER_REGEX =
   /^[a-zA-ZàáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđĐ\s]+$/;
 
 async function callGeminiApi(prompt: string): Promise<string | null> {
+  const currentKey = getActiveGeminiApiKey();
+  if (!currentKey) {
+    failedCallsCount++;
+    lastErrorMessage = "Thiếu API Key Gemini!";
+    return null;
+  }
+
+  totalCallsCount++;
+  const startTime = Date.now();
+
   for (const model of MODELS_PRIORITY) {
     try {
-      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${API_KEY}`;
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${currentKey}`;
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           contents: [{ parts: [{ text: prompt }] }],
           generationConfig: {
-            temperature: 0.1, // Strict temperature for precision
+            temperature: 0.1,
             maxOutputTokens: 512,
           },
         }),
       });
 
+      lastLatencyMs = Date.now() - startTime;
+      lastCallTimestamp = Date.now();
+
       if (res.ok) {
         const data = await res.json();
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (text) return text;
+        if (text) {
+          successCallsCount++;
+          // Estimate tokens: prompt chars / 3.5 + output chars / 3.5
+          const promptTokens = Math.ceil(prompt.length / 3.5);
+          const outputTokens = Math.ceil(text.length / 3.5);
+          estimatedTokensUsed += promptTokens + outputTokens;
+          return text;
+        }
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        lastErrorMessage = errData?.error?.message || `HTTP ${res.status}`;
       }
-    } catch {
-      // try next model
+    } catch (err: any) {
+      lastErrorMessage = err?.message || "Lỗi kết nối mạng";
     }
   }
+
+  failedCallsCount++;
   return null;
 }
 
@@ -371,5 +423,68 @@ Return ONLY JSON:
         error: `Word "${clean}" is not recognized in the English dictionary!`,
       };
     }
+  },
+
+  // ===================== ADMIN DIAGNOSTICS & MONITORING =====================
+  getStats() {
+    return {
+      totalCalls: totalCallsCount,
+      successCalls: successCallsCount,
+      failedCalls: failedCallsCount,
+      estimatedTokens: estimatedTokensUsed,
+      lastLatencyMs,
+      lastCallTimestamp,
+      lastErrorMessage,
+      activeKey: getActiveGeminiApiKey(),
+      models: MODELS_PRIORITY,
+      cacheSize: evaluationCache.size,
+    };
+  },
+
+  async checkHealth(testKey?: string): Promise<{ ok: boolean; latencyMs: number; model?: string; error?: string }> {
+    const keyToTest = testKey || getActiveGeminiApiKey();
+    if (!keyToTest) {
+      return { ok: false, latencyMs: 0, error: "Chưa cấu hình API Key!" };
+    }
+
+    const startTime = Date.now();
+    for (const model of MODELS_PRIORITY) {
+      try {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${keyToTest}`;
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: "Ping test. Reply with 'PONG'." }] }],
+            generationConfig: { maxOutputTokens: 10 },
+          }),
+        });
+
+        const latencyMs = Date.now() - startTime;
+        if (res.ok) {
+          return { ok: true, latencyMs, model };
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          const errMsg = errData?.error?.message || `HTTP ${res.status}`;
+          if (res.status === 429) {
+            return { ok: false, latencyMs, error: "API Key bị Rate Limit (Hết Quota lượt gọi)!" };
+          }
+          if (res.status === 400 || res.status === 403) {
+            return { ok: false, latencyMs, error: `API Key không hợp lệ hoặc bị chặn: ${errMsg}` };
+          }
+        }
+      } catch (e: any) {
+        return { ok: false, latencyMs: Date.now() - startTime, error: e?.message || "Lỗi mạng" };
+      }
+    }
+    return { ok: false, latencyMs: Date.now() - startTime, error: "Tất cả model Gemini đều không phản hồi!" };
+  },
+
+  setApiKey(newKey: string) {
+    setActiveGeminiApiKey(newKey);
+  },
+
+  clearCache() {
+    evaluationCache.clear();
   },
 };

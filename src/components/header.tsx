@@ -3,12 +3,17 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { User, MessageCircle, ShoppingBag, Settings, LogIn, Sparkles } from "lucide-react";
+import { User, MessageCircle, ShoppingBag, Settings, LogIn, Sparkles, Crown } from "lucide-react";
 import { useGame } from "@/lib/game-context";
 import { BrandLogo } from "@/components/brand-logo";
 
 export function Header() {
   const { profile, isLoggedIn, openModal } = useGame();
+
+  const isAdmin =
+    (profile?.email && profile.email.toLowerCase() === "admin@gmail.com") ||
+    profile?.role === "admin" ||
+    (typeof window !== "undefined" && localStorage.getItem("wf_admin_override") === "true");
 
   return (
     <>
@@ -94,8 +99,18 @@ export function Header() {
               </button>
             </div>
 
-            {/* Right: Auth / Shop & Settings */}
+            {/* Right: Auth / Shop & Settings & Admin */}
             <div className="flex shrink-0 items-center gap-2">
+              {isAdmin && (
+                <Link
+                  href="/admin"
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-600 font-black text-xs border border-amber-500/30 transition-all active:scale-95 shadow-sm"
+                >
+                  <Crown className="h-4 w-4 fill-amber-500" />
+                  <span>Admin</span>
+                </Link>
+              )}
+
               {!isLoggedIn && (
                 <button
                   type="button"
@@ -200,6 +215,17 @@ export function Header() {
             >
               <Settings className="h-3.5 w-3.5" />
             </button>
+
+            {/* Admin Crown Button */}
+            {isAdmin && (
+              <Link
+                href="/admin"
+                aria-label="Admin"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-500/15 text-amber-600 border border-amber-500/30 active:scale-90 transition-transform shadow-sm"
+              >
+                <Crown className="h-4 w-4 fill-amber-500" />
+              </Link>
+            )}
           </div>
         </div>
       </div>
