@@ -151,24 +151,44 @@ export default function AdminPage() {
   };
 
   const handleToggleBan = async (user: UserProfile) => {
+    if (user.role === "admin" || user.email?.toLowerCase() === "admin@gmail.com") {
+      alert("Không thể khóa tài khoản Admin tối cao!");
+      return;
+    }
     const isNowBanned = !user.isBanned;
     if (!confirm(`Bạn có chắc chắn muốn ${isNowBanned ? "KHÓA" : "MỞ KHÓA"} người dùng "${user.nickname}"?`)) {
       return;
     }
     setSavingUserAction(true);
-    await SupabaseService.adminToggleBan(user.id, isNowBanned);
+    // Optimistic UI update
+    setUsersList((prev) =>
+      prev.map((u) => (u.id === user.id ? { ...u, isBanned: isNowBanned } : u))
+    );
+    const ok = await SupabaseService.adminToggleBan(user.id, isNowBanned);
     sounds.playClick();
+    if (ok) {
+      alert(`Đã ${isNowBanned ? "KHÓA" : "MỞ KHÓA"} tài khoản "${user.nickname}" thành công!`);
+    }
     await loadUsers();
     setSavingUserAction(false);
   };
 
   const handleDeleteUser = async (user: UserProfile) => {
+    if (user.role === "admin" || user.email?.toLowerCase() === "admin@gmail.com") {
+      alert("Không thể xóa tài khoản Admin tối cao!");
+      return;
+    }
     if (!confirm(`XÓA VĨNH VIỄN tài khoản "${user.nickname}" (${user.email || user.id})? Hành động này không thể hoàn tác!`)) {
       return;
     }
     setSavingUserAction(true);
-    await SupabaseService.adminDeleteUser(user.id);
+    // Optimistic UI update
+    setUsersList((prev) => prev.filter((u) => u.id !== user.id));
+    const ok = await SupabaseService.adminDeleteUser(user.id);
     sounds.playWrong();
+    if (ok) {
+      alert(`Đã xóa vĩnh viễn tài khoản "${user.nickname}" thành công!`);
+    }
     await loadUsers();
     setSavingUserAction(false);
   };

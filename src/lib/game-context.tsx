@@ -78,6 +78,22 @@ export const GameProvider = ({ children }: { children: React.ReactNode }) => {
         setIsLoggedIn(true);
         localStorage.setItem("wf_profile", JSON.stringify(serverProfile));
       } else {
+        // If this was a registered user that was deleted by admin
+        if (userId.startsWith("acc_") || userId.startsWith("usr_") || (userEmail && userEmail !== "admin@gmail.com")) {
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("wf_auth_session");
+            localStorage.removeItem("wf_profile");
+          }
+          setIsLoggedIn(false);
+          const guest: UserProfile = {
+            ...DEFAULT_PROFILE,
+            id: "guest_" + Math.random().toString(36).substring(2, 9),
+            nickname: "Khách " + Math.floor(100 + Math.random() * 900),
+          };
+          setProfile(guest);
+          return;
+        }
+
         // Create initial profile if not exists
         const newProf: UserProfile = {
           ...DEFAULT_PROFILE,
@@ -200,6 +216,42 @@ export const GameProvider = ({ children }: { children: React.ReactNode }) => {
       console.warn("Init error:", e);
     }
   }, []);
+
+  // Periodic active check to verify if account was banned or deleted by Admin
+  useEffect(() => {
+    if (!profile?.id || profile.id.startsWith("guest_") || profile.id.startsWith("user_")) return;
+
+    const checkInterval = setInterval(async () => {
+      try {
+        const latest = await SupabaseService.fetchProfile(profile.id);
+        if (!latest) {
+          // Account was deleted by Admin!
+          if (typeof window !== "undefined") {
+            localStorage.removeItem("wf_auth_session");
+            localStorage.removeItem("wf_profile");
+          }
+          setIsLoggedIn(false);
+          const guest: UserProfile = {
+            ...DEFAULT_PROFILE,
+            id: "guest_" + Math.random().toString(36).substring(2, 9),
+            nickname: "Khách " + Math.floor(100 + Math.random() * 900),
+          };
+          setProfile(guest);
+          alert("Tài khoản của bạn đã bị xóa khỏi hệ thống bởi Quản Trị Viên.");
+          if (typeof window !== "undefined") {
+            window.location.href = "/";
+          }
+        } else if (latest.isBanned !== profile.isBanned) {
+          setProfile(latest);
+          localStorage.setItem("wf_profile", JSON.stringify(latest));
+        }
+      } catch (err) {
+        console.warn("User status check error:", err);
+      }
+    }, 4000);
+
+    return () => clearInterval(checkInterval);
+  }, [profile?.id, profile?.isBanned]);
 
   const login = async (email: string, pass: string) => {
     const { data, error } = await SupabaseService.signIn(email, pass);

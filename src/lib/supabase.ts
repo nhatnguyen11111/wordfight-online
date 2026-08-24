@@ -781,6 +781,7 @@ export const SupabaseService = {
 
     if (!isSupabaseConfigured()) return true;
     try {
+      await supabase.from("global_chat_messages").delete().eq("user_id", userId);
       await supabase.from("levels_progress").delete().eq("user_id", userId);
       await supabase.from("rooms").delete().eq("host_id", userId);
       const { error } = await supabase.from("profiles").delete().eq("id", userId);
