@@ -350,7 +350,7 @@ export default function RoomMultiplayerPage({
                   onClick={handleStartGame}
                   className="btn-wf-primary w-full h-12 rounded-2xl font-black text-primary-foreground flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-95 transition-all text-sm"
                 >
-                  <Swords className="h-5 w-5" /> Bắt Đầu Trận Đấu (Oẳn Tù Tì)
+                  <Swords className="h-5 w-5" /> Bắt Đầu Trận Đấu
                 </button>
               ) : (
                 <div className="p-3 rounded-2xl bg-muted/30 text-center text-xs font-bold text-muted-foreground">
@@ -397,11 +397,11 @@ export default function RoomMultiplayerPage({
           </div>
         </div>
       ) : gameState.status === "RPS" ? (
-        /* OẲN TÙ TÌ PHASE */
+        /* RPS PHASE */
         <div className="glass-card rounded-[32px] p-8 bg-background/80 backdrop-blur-xl border border-primary/20 text-center space-y-6 shadow-2xl animate-in zoom-in-95 duration-200 max-w-2xl mx-auto w-full">
           <div className="flex items-center justify-center gap-2">
             <span className="px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 font-black text-xs border border-amber-500/30 animate-pulse">
-              GIAI ĐOẠN 1: OẲN TÙ TÌ
+              PHÂN CHIA LƯỢT ĐI ĐẦU
             </span>
           </div>
 
@@ -732,7 +732,7 @@ export default function RoomMultiplayerPage({
                 onClick={handleRestart}
                 className="btn-wf-primary w-full h-12 rounded-2xl font-black text-primary-foreground flex items-center justify-center gap-2 cursor-pointer shadow-lg active:scale-95 transition-all text-sm"
               >
-                <RotateCcw className="h-4 w-4" /> Chơi Lại Ván Mới (Oẳn Tù Tì)
+                <RotateCcw className="h-4 w-4" /> Chơi Lại Ván Mới
               </button>
               <Link
                 href="/"

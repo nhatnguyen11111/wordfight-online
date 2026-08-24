@@ -230,7 +230,7 @@ export class MultiplayerRoomService {
       playerChoices: {},
       deadline: Date.now() + 6000,
       winnerId: null,
-      resultMessage: "Oẳn tù tì để phân chia người đi trước!",
+      resultMessage: "Chọn để phân chia người đi trước!",
     };
 
     this.broadcastState();
