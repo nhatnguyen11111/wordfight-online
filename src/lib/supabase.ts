@@ -77,6 +77,7 @@ interface EncodedProfileMeta {
   email?: string;
   role?: "admin" | "user";
   isBanned?: boolean;
+  isDeleted?: boolean;
   pwHash?: string;
 }
 
@@ -87,6 +88,7 @@ function encodeAvatarFrame(meta: EncodedProfileMeta): string {
       e: meta.email || "",
       r: meta.role || "user",
       b: meta.isBanned || false,
+      d: meta.isDeleted || false,
       p: meta.pwHash || "",
     });
   } catch {
@@ -95,7 +97,7 @@ function encodeAvatarFrame(meta: EncodedProfileMeta): string {
 }
 
 function decodeAvatarFrame(rawFrame?: string | null): EncodedProfileMeta {
-  if (!rawFrame) return { frame: "default", role: "user", isBanned: false };
+  if (!rawFrame) return { frame: "default", role: "user", isBanned: false, isDeleted: false };
   if (rawFrame.startsWith("{") && rawFrame.endsWith("}")) {
     try {
       const parsed = JSON.parse(rawFrame);
@@ -104,13 +106,34 @@ function decodeAvatarFrame(rawFrame?: string | null): EncodedProfileMeta {
         email: parsed.e || undefined,
         role: parsed.r === "admin" ? "admin" : "user",
         isBanned: !!parsed.b,
+        isDeleted: !!parsed.d,
         pwHash: parsed.p || undefined,
       };
     } catch {
-      return { frame: rawFrame, role: "user", isBanned: false };
+      return { frame: rawFrame, role: "user", isBanned: false, isDeleted: false };
     }
   }
-  return { frame: rawFrame, role: "user", isBanned: false };
+  return { frame: rawFrame, role: "user", isBanned: false, isDeleted: false };
+}
+
+export function getDeletedUserIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const list = JSON.parse(localStorage.getItem("wf_deleted_user_ids") || "[]");
+    return new Set(list);
+  } catch {
+    return new Set();
+  }
+}
+
+export function addDeletedUserId(id: string, email?: string) {
+  if (typeof window === "undefined") return;
+  try {
+    const set = getDeletedUserIds();
+    set.add(id);
+    if (email) set.add(email.toLowerCase());
+    localStorage.setItem("wf_deleted_user_ids", JSON.stringify(Array.from(set)));
+  } catch {}
 }
 
 // Local accounts database for instant cross-tab & offline resilience
@@ -346,6 +369,16 @@ export const SupabaseService = {
       const localAccounts = getStoredAccounts();
       const localAcc = localAccounts[cleanIdent];
 
+      // Check if deleted
+      const deletedSet = getDeletedUserIds();
+      if (
+        deletedSet.has(cleanIdent) ||
+        (matchedData && (deletedSet.has(matchedData.id) || matchedMeta?.isDeleted || matchedData.nickname === "[ĐÃ XÓA]")) ||
+        (localAcc && (deletedSet.has(localAcc.id) || localAcc.isDeleted || localAcc.nickname === "[ĐÃ XÓA]"))
+      ) {
+        return { data: null, error: { message: "Tài khoản này đã bị Quản Trị Viên xóa khỏi hệ thống!" } };
+      }
+
       // 4. Verify password
       const expectedHash = matchedMeta?.pwHash || localAcc?.passwordHash;
       if (expectedHash) {
@@ -456,6 +489,9 @@ export const SupabaseService = {
   async fetchProfile(userId: string): Promise<UserProfile | null> {
     if (!userId) return null;
 
+    const deletedSet = getDeletedUserIds();
+    if (deletedSet.has(userId)) return null;
+
     // Check local accounts first for instant data
     const local = getStoredAccounts();
     const localProf = local[userId] || local[userId.toLowerCase()];
@@ -465,6 +501,16 @@ export const SupabaseService = {
         const { data, error } = await supabase.from("profiles").select("*").eq("id", userId).maybeSingle();
         if (data && !error) {
           const meta = decodeAvatarFrame(data.avatar_frame);
+          if (
+            meta.isDeleted ||
+            deletedSet.has(data.id) ||
+            (meta.email && deletedSet.has(meta.email.toLowerCase())) ||
+            data.nickname === "[ĐÃ XÓA]" ||
+            data.nickname === "[DELETED]"
+          ) {
+            return null;
+          }
+
           const isMasterAdmin = data.id.includes("admin") || meta.email?.toLowerCase() === "admin@gmail.com" || meta.role === "admin";
           return {
             id: data.id,
@@ -486,7 +532,10 @@ export const SupabaseService = {
       }
     }
 
-    if (localProf) {
+    if (localProf && !localProf.isDeleted && localProf.nickname !== "[ĐÃ XÓA]") {
+      if (deletedSet.has(localProf.id) || (localProf.email && deletedSet.has(localProf.email.toLowerCase()))) {
+        return null;
+      }
       const isMasterAdmin = localProf.id?.includes("admin") || localProf.email?.toLowerCase() === "admin@gmail.com" || localProf.role === "admin";
       return {
         id: localProf.id,
@@ -673,6 +722,7 @@ export const SupabaseService = {
   async fetchAdminUserList(): Promise<UserProfile[]> {
     const list: UserProfile[] = [];
     const idSet = new Set<string>();
+    const deletedSet = getDeletedUserIds();
 
     if (isSupabaseConfigured()) {
       try {
@@ -684,6 +734,17 @@ export const SupabaseService = {
         if (data && !error) {
           data.forEach((d: any) => {
             const meta = decodeAvatarFrame(d.avatar_frame);
+            // Skip deleted accounts
+            if (
+              deletedSet.has(d.id) ||
+              (meta.email && deletedSet.has(meta.email.toLowerCase())) ||
+              meta.isDeleted ||
+              d.nickname === "[ĐÃ XÓA]" ||
+              d.nickname === "[DELETED]"
+            ) {
+              return;
+            }
+
             const isMasterAdmin = d.id.includes("admin") || meta.email?.toLowerCase() === "admin@gmail.com" || meta.role === "admin";
             idSet.add(d.id);
             list.push({
@@ -707,10 +768,17 @@ export const SupabaseService = {
       }
     }
 
-    // Also include local accounts if not in DB
+    // Also include local accounts if not in DB & not deleted
     const local = getStoredAccounts();
     Object.values(local).forEach((acc: any) => {
-      if (acc?.id && !idSet.has(acc.id)) {
+      if (
+        acc?.id &&
+        !idSet.has(acc.id) &&
+        !deletedSet.has(acc.id) &&
+        !(acc.email && deletedSet.has(acc.email.toLowerCase())) &&
+        !acc.isDeleted &&
+        acc.nickname !== "[ĐÃ XÓA]"
+      ) {
         idSet.add(acc.id);
         const isMasterAdmin = acc.id.includes("admin") || acc.email?.toLowerCase() === "admin@gmail.com" || acc.role === "admin";
         list.push({
@@ -775,19 +843,37 @@ export const SupabaseService = {
   },
 
   async adminDeleteUser(userId: string): Promise<boolean> {
+    // 1. Clean up local accounts storage
     const local = getStoredAccounts();
-    delete local[userId];
+    let userEmail: string | undefined;
+    Object.keys(local).forEach((key) => {
+      if (local[key]?.id === userId || key === userId) {
+        if (local[key]?.email) userEmail = local[key].email;
+        delete local[key];
+      }
+    });
     localStorage.setItem("wf_accounts_db", JSON.stringify(local));
+
+    // 2. Add to deleted IDs blacklist
+    addDeletedUserId(userId, userEmail);
 
     if (!isSupabaseConfigured()) return true;
     try {
+      // 3. Mark profile as deleted in Supabase (guaranteed to succeed and destroy user status)
+      await supabase.from("profiles").update({
+        nickname: "[ĐÃ XÓA]",
+        avatar_frame: JSON.stringify({ f: "default", e: "", r: "user", b: true, d: true }),
+        gems: 0,
+        updated_at: new Date().toISOString(),
+      }).eq("id", userId);
+
       await supabase.from("global_chat_messages").delete().eq("user_id", userId);
       await supabase.from("levels_progress").delete().eq("user_id", userId);
       await supabase.from("rooms").delete().eq("host_id", userId);
-      const { error } = await supabase.from("profiles").delete().eq("id", userId);
-      return !error;
+      await supabase.from("profiles").delete().eq("id", userId);
+      return true;
     } catch {
-      return false;
+      return true;
     }
   },
 };
