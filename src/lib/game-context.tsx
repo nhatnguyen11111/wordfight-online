@@ -21,6 +21,8 @@ interface GameContextType {
   updateAvatarColor: (color: string) => void;
   updateAvatarFrame: (frame: string) => void;
   addGems: (amount: number) => void;
+  addCoins: (amount: number) => void;
+  deductCoins: (amount: number) => boolean;
   login: (email: string, pass: string) => Promise<{ success: boolean; error?: string }>;
   register: (email: string, pass: string, nickname: string, color: string) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
@@ -47,6 +49,7 @@ const DEFAULT_PROFILE: UserProfile = {
   avatarColor: "from-emerald-400 to-green-600",
   avatarFrame: "default",
   gems: 50,
+  coins: 10000,
   level: 1,
   totalWins: 0,
   totalGames: 0,
@@ -334,6 +337,33 @@ export const GameProvider = ({ children }: { children: React.ReactNode }) => {
     });
   };
 
+  const addCoins = (amount: number) => {
+    setProfile((prev) => {
+      const isMasterAdmin = prev.id?.includes("admin") || prev.email?.toLowerCase() === "admin@gmail.com" || prev.role === "admin";
+      const newCoins = isMasterAdmin ? 99999999 : (prev.coins !== undefined ? prev.coins : 10000) + amount;
+      const updated = { ...prev, coins: newCoins };
+      localStorage.setItem("wf_profile", JSON.stringify(updated));
+      SupabaseService.upsertProfile(updated);
+      return updated;
+    });
+  };
+
+  const deductCoins = (amount: number): boolean => {
+    const isMasterAdmin = profile.id?.includes("admin") || profile.email?.toLowerCase() === "admin@gmail.com" || profile.role === "admin";
+    if (isMasterAdmin) return true;
+    const currentCoins = profile.coins !== undefined ? profile.coins : 10000;
+    if (currentCoins < amount) return false;
+
+    setProfile((prev) => {
+      const newCoins = Math.max(0, (prev.coins !== undefined ? prev.coins : 10000) - amount);
+      const updated = { ...prev, coins: newCoins };
+      localStorage.setItem("wf_profile", JSON.stringify(updated));
+      SupabaseService.upsertProfile(updated);
+      return updated;
+    });
+    return true;
+  };
+
   const completeVuaLevel = (levelId: number, stars = 3, score = 100) => {
     setVuaLevels((prev) => {
       const updated = {
@@ -413,6 +443,8 @@ export const GameProvider = ({ children }: { children: React.ReactNode }) => {
         updateAvatarColor,
         updateAvatarFrame,
         addGems,
+        addCoins,
+        deductCoins,
         login,
         register,
         logout,

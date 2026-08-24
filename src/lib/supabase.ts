@@ -30,12 +30,34 @@ export interface UserProfile {
   avatarColor: string;
   avatarFrame: string;
   gems: number;
+  coins?: number;
   level: number;
   totalWins: number;
   totalGames: number;
   highestStreak: number;
   role?: "admin" | "user";
   isBanned?: boolean;
+}
+
+export interface WithdrawalRequest {
+  id: string;
+  userId: string;
+  userNickname: string;
+  userEmail?: string;
+  amountCoins: number;
+  amountVnd: number;
+  method: "bank" | "wallet" | "card";
+  bankName?: string;
+  accountNumber?: string;
+  accountName?: string;
+  walletName?: string;
+  phoneNumber?: string;
+  cardCarrier?: string;
+  cardPrice?: number;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  adminNote?: string;
+  createdAt: number;
+  updatedAt: number;
 }
 
 // Password hashing utility for zero-rate-limit instant registration & login
@@ -78,6 +100,7 @@ interface EncodedProfileMeta {
   role?: "admin" | "user";
   isBanned?: boolean;
   isDeleted?: boolean;
+  coins?: number;
   pwHash?: string;
 }
 
@@ -89,6 +112,7 @@ function encodeAvatarFrame(meta: EncodedProfileMeta): string {
       r: meta.role || "user",
       b: meta.isBanned || false,
       d: meta.isDeleted || false,
+      c: meta.coins !== undefined ? meta.coins : 10000,
       p: meta.pwHash || "",
     });
   } catch {
@@ -97,7 +121,7 @@ function encodeAvatarFrame(meta: EncodedProfileMeta): string {
 }
 
 function decodeAvatarFrame(rawFrame?: string | null): EncodedProfileMeta {
-  if (!rawFrame) return { frame: "default", role: "user", isBanned: false, isDeleted: false };
+  if (!rawFrame) return { frame: "default", role: "user", isBanned: false, isDeleted: false, coins: 10000 };
   if (rawFrame.startsWith("{") && rawFrame.endsWith("}")) {
     try {
       const parsed = JSON.parse(rawFrame);
@@ -107,13 +131,14 @@ function decodeAvatarFrame(rawFrame?: string | null): EncodedProfileMeta {
         role: parsed.r === "admin" ? "admin" : "user",
         isBanned: !!parsed.b,
         isDeleted: !!parsed.d,
+        coins: parsed.c !== undefined ? parsed.c : 10000,
         pwHash: parsed.p || undefined,
       };
     } catch {
-      return { frame: rawFrame, role: "user", isBanned: false, isDeleted: false };
+      return { frame: rawFrame, role: "user", isBanned: false, isDeleted: false, coins: 10000 };
     }
   }
-  return { frame: rawFrame, role: "user", isBanned: false, isDeleted: false };
+  return { frame: rawFrame, role: "user", isBanned: false, isDeleted: false, coins: 10000 };
 }
 
 export function getDeletedUserIds(): Set<string> {
@@ -546,6 +571,7 @@ export const SupabaseService = {
             avatarColor: data.avatar_color,
             avatarFrame: meta.frame || "default",
             gems: isMasterAdmin ? 999999 : data.gems,
+            coins: isMasterAdmin ? 99999999 : (meta.coins !== undefined ? meta.coins : 10000),
             level: isMasterAdmin ? 99 : data.level,
             totalWins: data.total_wins,
             totalGames: data.total_games,
@@ -571,6 +597,7 @@ export const SupabaseService = {
         avatarColor: localProf.avatarColor || "from-emerald-400 to-green-600",
         avatarFrame: localProf.avatarFrame || "default",
         gems: isMasterAdmin ? 999999 : (localProf.gems || 50),
+        coins: isMasterAdmin ? 99999999 : (localProf.coins !== undefined ? localProf.coins : 10000),
         level: isMasterAdmin ? 99 : (localProf.level || 1),
         totalWins: localProf.totalWins || 0,
         totalGames: localProf.totalGames || 0,
@@ -589,6 +616,7 @@ export const SupabaseService = {
       email: profile.email,
       role: profile.role,
       isBanned: profile.isBanned,
+      coins: profile.coins,
     });
 
     saveStoredAccount({
@@ -862,6 +890,28 @@ export const SupabaseService = {
     }
   },
 
+  async adminUpdateCoins(userId: string, newCoins: number): Promise<boolean> {
+    const local = getStoredAccounts();
+    if (local[userId]) {
+      local[userId].coins = newCoins;
+      localStorage.setItem("wf_accounts_db", JSON.stringify(local));
+    }
+
+    if (!isSupabaseConfigured()) return true;
+    try {
+      const { data } = await supabase.from("profiles").select("avatar_frame").eq("id", userId).maybeSingle();
+      if (data) {
+        const meta = decodeAvatarFrame(data.avatar_frame);
+        const updated = encodeAvatarFrame({ ...meta, coins: newCoins });
+        const { error } = await supabase.from("profiles").update({ avatar_frame: updated }).eq("id", userId);
+        return !error;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  },
+
   async adminToggleBan(userId: string, isBanned: boolean): Promise<boolean> {
     const local = getStoredAccounts();
     if (local[userId]) {
@@ -917,5 +967,89 @@ export const SupabaseService = {
     } catch {
       return true;
     }
+  },
+
+  // ===================== WITHDRAWAL / REWARD SYSTEM =====================
+  async createWithdrawalRequest(req: WithdrawalRequest): Promise<boolean> {
+    // Save to local storage
+    if (typeof window !== "undefined") {
+      try {
+        const stored: WithdrawalRequest[] = JSON.parse(localStorage.getItem("wf_withdrawals") || "[]");
+        stored.unshift(req);
+        localStorage.setItem("wf_withdrawals", JSON.stringify(stored));
+      } catch (e) {
+        console.warn("Withdrawal local storage error:", e);
+      }
+    }
+
+    // Deduct user's coins
+    const prof = await this.fetchProfile(req.userId);
+    if (prof) {
+      const remainingCoins = Math.max(0, (prof.coins || 10000) - req.amountCoins);
+      await this.upsertProfile({ ...prof, coins: remainingCoins });
+    }
+
+    return true;
+  },
+
+  async fetchWithdrawalRequests(userId?: string): Promise<WithdrawalRequest[]> {
+    let list: WithdrawalRequest[] = [];
+    if (typeof window !== "undefined") {
+      try {
+        list = JSON.parse(localStorage.getItem("wf_withdrawals") || "[]");
+      } catch {
+        list = [];
+      }
+    }
+
+    if (userId) {
+      return list.filter((r) => r.userId === userId);
+    }
+    return list;
+  },
+
+  async adminApproveWithdrawal(reqId: string): Promise<boolean> {
+    if (typeof window !== "undefined") {
+      try {
+        const list: WithdrawalRequest[] = JSON.parse(localStorage.getItem("wf_withdrawals") || "[]");
+        const idx = list.findIndex((r) => r.id === reqId);
+        if (idx !== -1) {
+          list[idx].status = "APPROVED";
+          list[idx].updatedAt = Date.now();
+          localStorage.setItem("wf_withdrawals", JSON.stringify(list));
+          return true;
+        }
+      } catch (e) {
+        console.warn("Approve withdrawal error:", e);
+      }
+    }
+    return false;
+  },
+
+  async adminRejectWithdrawal(reqId: string, reason = "Thông tin tài khoản không hợp lệ"): Promise<boolean> {
+    if (typeof window !== "undefined") {
+      try {
+        const list: WithdrawalRequest[] = JSON.parse(localStorage.getItem("wf_withdrawals") || "[]");
+        const idx = list.findIndex((r) => r.id === reqId);
+        if (idx !== -1) {
+          const req = list[idx];
+          req.status = "REJECTED";
+          req.adminNote = reason;
+          req.updatedAt = Date.now();
+          localStorage.setItem("wf_withdrawals", JSON.stringify(list));
+
+          // Refund coins back to player!
+          const prof = await this.fetchProfile(req.userId);
+          if (prof) {
+            const refunded = (prof.coins || 10000) + req.amountCoins;
+            await this.upsertProfile({ ...prof, coins: refunded });
+          }
+          return true;
+        }
+      } catch (e) {
+        console.warn("Reject withdrawal error:", e);
+      }
+    }
+    return false;
   },
 };

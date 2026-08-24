@@ -11,6 +11,7 @@ export interface RoomInfo {
   hasPassword: boolean;
   password?: string;
   turnTimeSec: number; // 15 | 20 | 30
+  betCoins?: number; // 0 (Free) or Coin amount (1000, 2000, 5000, 10000, ...)
   hostId: string;
   hostNickname: string;
   hostAvatarColor: string;
@@ -19,6 +20,8 @@ export interface RoomInfo {
   status: "WAITING" | "PLAYING" | "FINISHED";
   createdAt: number;
 }
+
+export const BET_COIN_PRESETS = [0, 1000, 2000, 5000, 10000, 20000, 50000, 100000] as const;
 
 export const ROOM_COLOR_THEMES = [
   { id: "emerald", name: "Lục Bảo", bg: "from-emerald-500/20 to-teal-500/20", border: "border-emerald-500/40", text: "text-emerald-600 dark:text-emerald-400", badge: "bg-emerald-500/10 text-emerald-600" },

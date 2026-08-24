@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { User, MessageCircle, ShoppingBag, Settings, LogIn, Sparkles, Crown } from "lucide-react";
+import { User, MessageCircle, ShoppingBag, Settings, LogIn, Sparkles, Crown, Coins } from "lucide-react";
 import { useGame } from "@/lib/game-context";
 import { BrandLogo } from "@/components/brand-logo";
 
@@ -99,8 +99,20 @@ export function Header() {
               </button>
             </div>
 
-            {/* Right: Auth / Shop & Settings & Admin */}
+            {/* Right: Coins, Auth / Shop & Settings & Admin */}
             <div className="flex shrink-0 items-center gap-2">
+              {/* Coins Balance & Quick Withdraw */}
+              <button
+                type="button"
+                onClick={() => openModal("withdraw")}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-500/10 to-orange-500/10 hover:from-amber-500/20 hover:to-orange-500/20 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-xs font-black transition-all cursor-pointer active:scale-95 shadow-sm"
+                title="Bấm để Đổi Thưởng & Rút Tiền Thật"
+              >
+                <Coins className="h-4 w-4 fill-amber-500" />
+                <span>{(profile.coins !== undefined ? profile.coins : 10000).toLocaleString("vi-VN")} Xu</span>
+                <span className="px-1.5 py-0.5 rounded-md bg-amber-500 text-white text-[9px] font-black uppercase">Rút</span>
+              </button>
+
               {isAdmin && (
                 <Link
                   href="/admin"
@@ -168,6 +180,17 @@ export function Header() {
               <span className="text-[11px] font-bold text-foreground truncate max-w-[65px] sm:max-w-[90px] pr-1.5">
                 {isLoggedIn ? profile.nickname : "Đăng nhập"}
               </span>
+            </button>
+
+            {/* Mobile Coins / Quick Withdraw */}
+            <button
+              type="button"
+              onClick={() => openModal("withdraw")}
+              className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-500/15 text-amber-600 border border-amber-500/30 text-[11px] font-black active:scale-90 transition-transform"
+              title="Đổi thưởng & Rút tiền"
+            >
+              <Coins className="h-3.5 w-3.5 fill-amber-500" />
+              <span>{(profile.coins !== undefined ? profile.coins : 10000).toLocaleString("vi-VN")}</span>
             </button>
 
             {/* Leaderboard */}

@@ -26,19 +26,30 @@ import {
   Eye,
   EyeOff,
   Zap,
+  Coins,
+  Building2,
+  Smartphone,
+  CreditCard,
+  Clock,
 } from "lucide-react";
 import { useGame } from "@/lib/game-context";
-import { SupabaseService, UserProfile } from "@/lib/supabase";
+import { SupabaseService, UserProfile, WithdrawalRequest } from "@/lib/supabase";
 import { GeminiAI } from "@/lib/gemini-ai";
+import { WithdrawalService } from "@/lib/withdrawal-service";
 import { sounds } from "@/lib/sound-effects";
 
 export default function AdminPage() {
   const { profile, isLoggedIn, login, openModal } = useGame();
 
-  const [activeTab, setActiveTab] = useState<"gemini" | "users" | "chat" | "overview">("gemini");
+  const [activeTab, setActiveTab] = useState<"gemini" | "users" | "withdrawals" | "chat" | "overview">("gemini");
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [loadingUsers, setLoadingUsers] = useState(false);
+
+  // Withdrawal Requests state
+  const [withdrawalsList, setWithdrawalsList] = useState<WithdrawalRequest[]>([]);
+  const [loadingWithdrawals, setLoadingWithdrawals] = useState(false);
+  const [processingId, setProcessingId] = useState<string | null>(null);
 
   // Gemini API state
   const [apiKeyInput, setApiKeyInput] = useState("");
@@ -87,10 +98,19 @@ export default function AdminPage() {
     setLoadingUsers(false);
   };
 
+  // Load Withdrawals List
+  const loadWithdrawals = async () => {
+    setLoadingWithdrawals(true);
+    const list = await WithdrawalService.getAllWithdrawals();
+    setWithdrawalsList(list);
+    setLoadingWithdrawals(false);
+  };
+
   useEffect(() => {
     refreshGeminiStats();
     if (isAdmin) {
       loadUsers();
+      loadWithdrawals();
     }
   }, [isAdmin]);
 
@@ -191,6 +211,52 @@ export default function AdminPage() {
     }
     await loadUsers();
     setSavingUserAction(false);
+  };
+
+  const handleAddCoins = async (user: UserProfile, delta: number) => {
+    setSavingUserAction(true);
+    const newCoins = Math.max(0, (user.coins || 10000) + delta);
+    // Optimistic UI update
+    setUsersList((prev) => prev.map((u) => (u.id === user.id ? { ...u, coins: newCoins } : u)));
+    const ok = await SupabaseService.adminUpdateCoins(user.id, newCoins);
+    sounds.playCorrect();
+    if (ok) {
+      alert(`Đã cập nhật ${delta > 0 ? `+${delta}` : delta} Xu Vàng cho "${user.nickname}"!`);
+    }
+    await loadUsers();
+    setSavingUserAction(false);
+  };
+
+  const handleApproveWithdrawal = async (reqId: string) => {
+    if (!confirm("Xác nhận BẠN ĐÃ CHUYỂN TIỀN thành công cho người chơi này?")) return;
+    setProcessingId(reqId);
+    const ok = await WithdrawalService.approve(reqId);
+    setProcessingId(null);
+    if (ok) {
+      sounds.playFanfare();
+      alert("Đã duyệt yêu cầu rút tiền thành công!");
+      loadWithdrawals();
+    } else {
+      sounds.playWrong();
+      alert("Không thể duyệt đơn. Vui lòng thử lại!");
+    }
+  };
+
+  const handleRejectWithdrawal = async (reqId: string) => {
+    const reason = prompt("Nhập lý do từ chối (Số xu sẽ tự động được hoàn lại cho người chơi):", "Thông tin tài khoản/SĐT không chính xác");
+    if (!reason) return;
+    setProcessingId(reqId);
+    const ok = await WithdrawalService.reject(reqId, reason);
+    setProcessingId(null);
+    if (ok) {
+      sounds.playWrong();
+      alert("Đã từ chối yêu cầu và HOÀN LẠI XU cho người chơi thành công!");
+      loadWithdrawals();
+      loadUsers();
+    } else {
+      sounds.playWrong();
+      alert("Lỗi khi từ chối yêu cầu!");
+    }
   };
 
   // Broadcast announcement
@@ -351,6 +417,27 @@ export default function AdminPage() {
           >
             <Users className="h-4 w-4 text-blue-500" />
             <span>Quản Lý User ({usersList.length})</span>
+          </button>
+
+          <button
+            onClick={() => {
+              setActiveTab("withdrawals");
+              sounds.playClick();
+              loadWithdrawals();
+            }}
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-black cursor-pointer transition-all relative ${
+              activeTab === "withdrawals"
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            <Coins className="h-4 w-4 text-amber-500 fill-amber-500" />
+            <span>Duyệt Rút Tiền ({withdrawalsList.length})</span>
+            {withdrawalsList.filter((w) => w.status === "PENDING").length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-rose-500 text-white text-[9px] font-black animate-pulse">
+                {withdrawalsList.filter((w) => w.status === "PENDING").length}
+              </span>
+            )}
           </button>
 
           <button
@@ -599,6 +686,7 @@ export default function AdminPage() {
                     <th className="py-3 px-3">Người Chơi</th>
                     <th className="py-3 px-3">Email / ID</th>
                     <th className="py-3 px-3">Kim Cương 💎</th>
+                    <th className="py-3 px-3">Xu Vàng 🪙</th>
                     <th className="py-3 px-3">Cấp / Thắng</th>
                     <th className="py-3 px-3">Vai Trò</th>
                     <th className="py-3 px-3 text-right">Hành Động</th>
@@ -633,8 +721,15 @@ export default function AdminPage() {
 
                       {/* Gems */}
                       <td className="py-3 px-3">
-                        <span className="flex items-center gap-1 font-black text-amber-500">
+                        <span className="flex items-center gap-1 font-black text-emerald-500">
                           <Gem className="h-3.5 w-3.5" /> {(u.gems || 0).toLocaleString()}
+                        </span>
+                      </td>
+
+                      {/* Coins */}
+                      <td className="py-3 px-3">
+                        <span className="flex items-center gap-1 font-black text-amber-500">
+                          <Coins className="h-3.5 w-3.5 fill-amber-500" /> {(u.coins !== undefined ? u.coins : 10000).toLocaleString()}
                         </span>
                       </td>
 
@@ -665,7 +760,16 @@ export default function AdminPage() {
                             className="px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 font-bold text-[11px] cursor-pointer"
                             title="Tặng 1000 Kim Cương"
                           >
-                            +1000 💎
+                            +1k 💎
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleAddCoins(u, 10000)}
+                            className="px-2 py-1 rounded-lg bg-amber-500/10 text-amber-600 hover:bg-amber-500/20 font-bold text-[11px] cursor-pointer"
+                            title="Tặng 10,000 Xu Vàng"
+                          >
+                            +10k 🪙
                           </button>
 
                           <button
@@ -690,6 +794,187 @@ export default function AdminPage() {
                             <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ==================== TAB 3: QUẢN LÝ DUYỆT RÚT TIỀN & ĐỔI THƯỞNG ==================== */}
+      {activeTab === "withdrawals" && (
+        <div className="glass-card p-6 rounded-[32px] bg-background/80 backdrop-blur-xl border border-primary/20 space-y-5 shadow-sm animate-in fade-in duration-200">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/50 pb-4">
+            <div>
+              <h2 className="text-lg font-black text-foreground">
+                Danh Sách Yêu Cầu Rút Tiền ({withdrawalsList.length})
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Xem thông tin tài khoản ngân hàng / ví điện tử / thẻ cào, xác nhận chuyển khoản và phê duyệt đơn
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={loadWithdrawals}
+              disabled={loadingWithdrawals}
+              className="flex items-center gap-1.5 h-9 px-3.5 rounded-xl border border-border bg-muted/40 hover:bg-muted text-xs font-bold text-foreground cursor-pointer"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${loadingWithdrawals ? "animate-spin" : ""}`} />
+              <span>Làm mới</span>
+            </button>
+          </div>
+
+          {loadingWithdrawals ? (
+            <div className="py-12 text-center text-muted-foreground text-sm flex items-center justify-center gap-2">
+              <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+              <span>Đang tải danh sách yêu cầu rút tiền...</span>
+            </div>
+          ) : withdrawalsList.length === 0 ? (
+            <div className="py-12 text-center text-muted-foreground text-sm space-y-1">
+              <Coins className="h-10 w-10 mx-auto opacity-30 animate-pulse text-amber-500" />
+              <p>Chưa có yêu cầu rút tiền nào từ người chơi.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-border/60 text-muted-foreground uppercase text-[10px] font-black tracking-wider">
+                    <th className="py-3 px-3">Người Rút</th>
+                    <th className="py-3 px-3">Số Tiền Rút</th>
+                    <th className="py-3 px-3">Phương Thức & Chi Tiết Nhận</th>
+                    <th className="py-3 px-3">Thời Gian</th>
+                    <th className="py-3 px-3">Trạng Thái</th>
+                    <th className="py-3 px-3 text-right">Duyệt Đơn</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/40 font-medium">
+                  {withdrawalsList.map((req) => (
+                    <tr key={req.id} className="hover:bg-muted/30 transition-colors">
+                      {/* User */}
+                      <td className="py-3 px-3">
+                        <div>
+                          <p className="font-bold text-foreground">{req.userNickname}</p>
+                          <p className="text-[10px] text-muted-foreground font-mono truncate max-w-[130px]">
+                            {req.userEmail || req.userId}
+                          </p>
+                        </div>
+                      </td>
+
+                      {/* Amount */}
+                      <td className="py-3 px-3">
+                        <div>
+                          <p className="font-black text-emerald-600 dark:text-emerald-400 text-sm">
+                            {req.amountVnd.toLocaleString("vi-VN")} VNĐ
+                          </p>
+                          <p className="text-[10px] text-amber-600 font-bold flex items-center gap-1">
+                            <Coins className="h-3 w-3 fill-amber-500" />
+                            {req.amountCoins.toLocaleString("vi-VN")} Xu
+                          </p>
+                        </div>
+                      </td>
+
+                      {/* Payment Destination Details */}
+                      <td className="py-3 px-3">
+                        {req.method === "bank" ? (
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-1 font-bold text-foreground">
+                              <Building2 className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+                              <span>{req.bankName}</span>
+                            </div>
+                            <p className="font-mono text-xs font-black text-foreground bg-muted/60 px-1.5 py-0.5 rounded inline-block">
+                              STK: {req.accountNumber}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold">
+                              Chủ TK: {req.accountName}
+                            </p>
+                          </div>
+                        ) : req.method === "wallet" ? (
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-1 font-bold text-foreground">
+                              <Smartphone className="h-3.5 w-3.5 text-pink-500 shrink-0" />
+                              <span className="uppercase">Ví {req.walletName}</span>
+                            </div>
+                            <p className="font-mono text-xs font-black text-foreground bg-muted/60 px-1.5 py-0.5 rounded inline-block">
+                              SĐT: {req.phoneNumber}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold">
+                              Tên: {req.accountName}
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-1 font-bold text-foreground">
+                              <CreditCard className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
+                              <span className="uppercase">Thẻ Cào {req.cardCarrier}</span>
+                            </div>
+                            <p className="text-xs font-bold text-foreground">
+                              Mệnh giá: {req.cardPrice?.toLocaleString("vi-VN")}đ
+                            </p>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Created At */}
+                      <td className="py-3 px-3 text-[11px] text-muted-foreground">
+                        {new Date(req.createdAt).toLocaleString("vi-VN")}
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-3 px-3">
+                        {req.status === "APPROVED" ? (
+                          <span className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 font-black text-[11px] border border-emerald-500/20 flex items-center gap-1 w-max">
+                            <CheckCircle2 className="h-3 w-3" /> Đã duyệt
+                          </span>
+                        ) : req.status === "REJECTED" ? (
+                          <div className="space-y-0.5">
+                            <span className="px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-600 font-black text-[11px] border border-rose-500/20 flex items-center gap-1 w-max">
+                              <XCircle className="h-3 w-3" /> Đã từ chối
+                            </span>
+                            {req.adminNote && (
+                              <p className="text-[10px] text-rose-500 font-medium">{req.adminNote}</p>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-600 font-black text-[11px] border border-amber-500/20 flex items-center gap-1 w-max animate-pulse">
+                            <Clock className="h-3 w-3" /> Chờ duyệt
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3 px-3 text-right">
+                        {req.status === "PENDING" ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              disabled={processingId === req.id}
+                              onClick={() => handleApproveWithdrawal(req.id)}
+                              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] cursor-pointer shadow-sm active:scale-95 transition-all flex items-center gap-1"
+                              title="Xác nhận bạn đã chuyển tiền thành công"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              <span>Duyệt & Đã Chuyển</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={processingId === req.id}
+                              onClick={() => handleRejectWithdrawal(req.id)}
+                              className="px-2.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 font-black text-[11px] cursor-pointer border border-rose-500/20 active:scale-95 transition-all"
+                              title="Từ chối và tự động hoàn lại xu cho người chơi"
+                            >
+                              <span>Từ Chối (Hoàn Xu)</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground font-bold">
+                            Đã xử lý
+                          </span>
+                        )}
                       </td>
                     </tr>
                   ))}

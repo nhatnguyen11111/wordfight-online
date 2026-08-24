@@ -12,6 +12,7 @@ import { GlobalChatDrawer } from "@/components/modals/global-chat-drawer";
 import { RulesModal } from "@/components/modals/rules-modal";
 import { AuthModal } from "@/components/modals/auth-modal";
 import { BannedModal } from "@/components/modals/banned-modal";
+import { WithdrawModal } from "@/components/modals/withdraw-modal";
 
 const nunito = Nunito({
   subsets: ["latin", "vietnamese"],
@@ -92,6 +93,7 @@ export default function RootLayout({
           <RulesModal />
           <AuthModal />
           <BannedModal />
+          <WithdrawModal />
         </GameProvider>
       </body>
     </html>

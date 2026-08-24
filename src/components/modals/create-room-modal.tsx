@@ -18,10 +18,11 @@ import {
   Palette,
   AlertCircle,
   Play,
+  Coins,
 } from "lucide-react";
 import { useGame } from "@/lib/game-context";
 import { sounds } from "@/lib/sound-effects";
-import { RoomRegistry, RoomInfo, ROOM_COLOR_THEMES } from "@/lib/room-registry";
+import { RoomRegistry, RoomInfo, ROOM_COLOR_THEMES, BET_COIN_PRESETS } from "@/lib/room-registry";
 
 export function CreateRoomModal() {
   const { activeModal, closeModal, isLoggedIn, openModal, profile } = useGame();
@@ -36,6 +37,7 @@ export function CreateRoomModal() {
   const [hasPassword, setHasPassword] = useState(false);
   const [roomPassword, setRoomPassword] = useState("");
   const [turnTimeSec, setTurnTimeSec] = useState<number>(20);
+  const [betCoins, setBetCoins] = useState<number>(0);
   const [creatingRoom, setCreatingRoom] = useState(false);
 
   // Join room code state
@@ -95,6 +97,7 @@ export function CreateRoomModal() {
       hasPassword,
       password: hasPassword ? roomPassword.trim() : undefined,
       turnTimeSec,
+      betCoins,
       hostId: profile.id,
       hostNickname: profile.nickname,
       hostAvatarColor: profile.avatarColor,
@@ -111,7 +114,7 @@ export function CreateRoomModal() {
     router.push(
       `/play/friends/room/${randomCode}?create=true&lang=${selectedLang}&theme=${selectedColor}&name=${encodeURIComponent(
         newRoom.name
-      )}&time=${turnTimeSec}`
+      )}&time=${turnTimeSec}&bet=${betCoins}`
     );
   };
 
@@ -326,11 +329,23 @@ export function CreateRoomModal() {
                       <div>
                         {/* Top badges */}
                         <div className="flex items-center justify-between gap-1.5 mb-2">
-                          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${theme.badge}`}>
-                            #{room.id}
-                          </span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${theme.badge}`}>
+                              #{room.id}
+                            </span>
+                            {room.betCoins ? (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                                <Coins className="h-3 w-3 fill-amber-500" />
+                                {room.betCoins.toLocaleString("vi-VN")} Xu
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-500/10 text-emerald-600">
+                                Miễn Phí
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-1 text-[10px] font-bold text-muted-foreground">
-                            <span>{room.language === "vi" ? "🇻🇳 Tiếng Việt" : "🇬🇧 Tiếng Anh"}</span>
+                            <span>{room.language === "vi" ? "🇻🇳" : "🇬🇧"}</span>
                             {room.hasPassword && <Lock className="h-3 w-3 text-amber-500" />}
                           </div>
                         </div>
@@ -386,6 +401,39 @@ export function CreateRoomModal() {
                 className="w-full h-11 px-4 rounded-2xl border border-border bg-muted/40 text-xs font-bold text-foreground focus:outline-none focus:border-primary"
                 required
               />
+            </div>
+
+            {/* Coin Wager Selector */}
+            <div className="p-3.5 rounded-2xl border border-amber-500/30 bg-amber-500/5 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Coins className="h-4 w-4 text-amber-500 fill-amber-500" />
+                  <span className="text-xs font-black text-amber-600 dark:text-amber-400">Mức Cược Xu Vàng:</span>
+                </div>
+                <span className="text-[11px] font-black text-foreground">
+                  {betCoins === 0 ? "Miễn Phí" : `${betCoins.toLocaleString("vi-VN")} Xu / người`}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-4 gap-1.5">
+                {BET_COIN_PRESETS.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => {
+                      sounds.playClick();
+                      setBetCoins(preset);
+                    }}
+                    className={`py-1.5 px-1 rounded-xl text-[11px] font-black border transition-all cursor-pointer ${
+                      betCoins === preset
+                        ? "bg-amber-500 text-white border-amber-600 shadow-sm scale-102"
+                        : "bg-background/80 text-foreground border-border hover:bg-muted"
+                    }`}
+                  >
+                    {preset === 0 ? "Miễn Phí" : `${preset >= 1000 ? `${preset / 1000}k` : preset}`}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Room Theme Color Picker */}

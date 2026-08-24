@@ -28,6 +28,7 @@ import {
   Flame,
   HelpCircle,
   CheckCircle2,
+  Coins,
 } from "lucide-react";
 import { useGame } from "@/lib/game-context";
 import { sounds } from "@/lib/sound-effects";
@@ -48,7 +49,7 @@ export default function RoomMultiplayerPage({
   searchParams,
 }: {
   params: Promise<{ roomId: string }>;
-  searchParams?: Promise<{ create?: string; lang?: string; theme?: string; name?: string; time?: string }>;
+  searchParams?: Promise<{ create?: string; lang?: string; theme?: string; name?: string; time?: string; bet?: string }>;
 }) {
   const resolvedParams = use(params);
   const resolvedSearchParams = searchParams ? use(searchParams) : {};
@@ -57,13 +58,16 @@ export default function RoomMultiplayerPage({
   const language = (resolvedSearchParams?.lang === "en" ? "en" : "vi") as "vi" | "en";
   const customRoomName = resolvedSearchParams?.name ? decodeURIComponent(resolvedSearchParams.name) : `PHÒNG #${roomId}`;
 
-  const { profile, addGems, isLoggedIn, openModal } = useGame();
+  const { profile, addGems, addCoins, deductCoins, isLoggedIn, openModal } = useGame();
 
   const [copied, setCopied] = useState(false);
   const [roomInfo, setRoomInfo] = useState<RoomInfo | null>(null);
   const [roomNotFound, setRoomNotFound] = useState(false);
   const [wasKicked, setWasKicked] = useState(false);
   const [kickedReason, setKickedReason] = useState("");
+  const [wagerDeducted, setWagerDeducted] = useState(false);
+
+  const betCoins = roomInfo?.betCoins ?? (resolvedSearchParams?.bet ? Number(resolvedSearchParams.bet) : 0);
 
   const [gameState, setGameState] = useState<MultiplayerGameState>({
     roomId,
@@ -193,6 +197,16 @@ export default function RoomMultiplayerPage({
     };
   }, [gameState.status, gameState.turnDeadline]);
 
+  // Handle Coin Wager Deduction upon entering PLAYING state
+  useEffect(() => {
+    if (gameState.status === "PLAYING" && betCoins > 0 && !wagerDeducted) {
+      deductCoins(betCoins);
+      setWagerDeducted(true);
+    } else if (gameState.status === "WAITING") {
+      setWagerDeducted(false);
+    }
+  }, [gameState.status, betCoins, wagerDeducted, deductCoins]);
+
   // Handle Win reward & fanfare
   useEffect(() => {
     if (gameState.status === "FINISHED") {
@@ -200,6 +214,9 @@ export default function RoomMultiplayerPage({
         sounds.playFanfare();
         if (!rewardClaimed) {
           addGems(20);
+          if (betCoins > 0) {
+            addCoins(betCoins * 2); // Winner receives the 2x Pot!
+          }
           setRewardClaimed(true);
         }
       } else {
@@ -209,7 +226,7 @@ export default function RoomMultiplayerPage({
       setRewardClaimed(false);
       setSelectedRps(null);
     }
-  }, [gameState.status, gameState.winner?.id, profile.id, rewardClaimed, addGems]);
+  }, [gameState.status, gameState.winner?.id, profile.id, rewardClaimed, addGems, addCoins, betCoins]);
 
   // Direct check if it is my turn by ID
   const isMyTurn = gameState.activePlayerId === profile.id;
@@ -463,6 +480,12 @@ export default function RoomMultiplayerPage({
               <span className="px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-primary/10 text-primary font-black text-[11px] sm:text-xs border border-primary/20">
                 {roomInfo?.name || customRoomName} (#{roomId})
               </span>
+              {betCoins > 0 && (
+                <span className="px-2.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 font-black text-[11px] sm:text-xs border border-amber-500/30 flex items-center gap-1 shadow-sm">
+                  <Coins className="h-3.5 w-3.5 fill-amber-500" />
+                  <span>Hũ Thưởng: {(betCoins * 2).toLocaleString("vi-VN")} Xu</span>
+                </span>
+              )}
               <span className="text-[11px] sm:text-xs font-bold text-muted-foreground hidden sm:inline">
                 {gameState.language === "vi" ? "Tiếng Việt" : "Tiếng Anh"} • {gameState.players.length} người
               </span>
@@ -1005,9 +1028,17 @@ export default function RoomMultiplayerPage({
             </div>
 
             {isWinner && (
-              <div className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 font-black text-sm">
-                <Gem className="h-5 w-5 text-emerald-500" />
-                <span>+20 💎 Kim Cương Khích Lệ</span>
+              <div className="space-y-2">
+                {betCoins > 0 && (
+                  <div className="flex items-center justify-center gap-2 p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/20 via-orange-500/15 to-amber-500/20 border border-amber-500/40 text-amber-600 dark:text-amber-400 font-black text-base shadow-md animate-bounce">
+                    <Coins className="h-5 w-5 fill-amber-500" />
+                    <span>+{(betCoins * 2).toLocaleString("vi-VN")} Xu Vàng (Thắng Cược)</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 font-black text-sm">
+                  <Gem className="h-5 w-5 text-emerald-500" />
+                  <span>+20 💎 Kim Cương Khích Lệ</span>
+                </div>
               </div>
             )}
 

@@ -3,7 +3,7 @@
 import React from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Crown, Plus, Lock, Sparkles, Swords, Zap } from "lucide-react";
+import { Crown, Plus, Lock, Sparkles, Swords, Zap, Coins } from "lucide-react";
 import { useGame } from "@/lib/game-context";
 import { FooterSEO } from "@/components/footer-seo";
 import { sounds } from "@/lib/sound-effects";
@@ -261,12 +261,24 @@ export default function Home() {
                   className={`p-4 rounded-2xl border-2 bg-gradient-to-br ${theme.bg} ${theme.border} flex flex-col justify-between transition-all hover:scale-[1.02] shadow-sm`}
                 >
                   <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${theme.badge}`}>
-                        #{room.id}
-                      </span>
+                    <div className="flex items-center justify-between mb-1.5 flex-wrap gap-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${theme.badge}`}>
+                          #{room.id}
+                        </span>
+                        {room.betCoins ? (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 flex items-center gap-1">
+                            <Coins className="h-3 w-3 fill-amber-500" />
+                            {room.betCoins.toLocaleString("vi-VN")} Xu
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-500/10 text-emerald-600">
+                            Miễn Phí
+                          </span>
+                        )}
+                      </div>
                       <span className="text-[10px] font-bold text-muted-foreground">
-                        {room.language === "vi" ? "🇻🇳 Tiếng Việt" : "🇬🇧 Tiếng Anh"}
+                        {room.language === "vi" ? "🇻🇳" : "🇬🇧"}
                       </span>
                     </div>
                     <h3 className="font-black text-sm text-foreground truncate">{room.name}</h3>
