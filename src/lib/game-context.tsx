@@ -131,11 +131,25 @@ export const GameProvider = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     try {
-      // Check active Supabase session on mount
+      // Check active Supabase or Local Auth session on mount
       SupabaseService.getCurrentSession().then((session) => {
         if (session?.user) {
           loadUserData(session.user.id, session.user.email);
         } else {
+          // Check local auth session
+          const authSession = localStorage.getItem("wf_auth_session");
+          if (authSession) {
+            try {
+              const parsed = JSON.parse(authSession);
+              if (parsed.userId) {
+                loadUserData(parsed.userId, parsed.email);
+                return;
+              }
+            } catch (e) {
+              console.warn("Auth session parse error:", e);
+            }
+          }
+
           // Check local guest profile
           const saved = localStorage.getItem("wf_profile");
           if (saved) {
