@@ -15,6 +15,7 @@ import {
   MessageCircle,
   Sparkles,
   BookOpen,
+  Timer,
   Clock,
   Lock,
   LogIn,
@@ -22,8 +23,10 @@ import {
   RotateCcw,
   Gem,
   Swords,
-  Link as LinkIcon,
   LogOut,
+  Zap,
+  Flame,
+  HelpCircle,
 } from "lucide-react";
 import { useGame } from "@/lib/game-context";
 import { sounds } from "@/lib/sound-effects";
@@ -296,111 +299,101 @@ export default function RoomMultiplayerPage({
   }
 
   return (
-    <div className="relative min-h-[calc(100dvh-76px)] bg-[#4a7263] text-white flex flex-col justify-between py-4 px-3 sm:px-6 select-none overflow-hidden font-sans">
-      {/* Background Blackboard Doodles */}
-      <div className="absolute inset-0 pointer-events-none opacity-10 text-white flex flex-wrap justify-around items-center p-12 text-7xl font-black tracking-widest select-none">
-        <span>Ư</span>
-        <span>A</span>
-        <span>?</span>
-        <span>!</span>
-        <span>✿</span>
-        <span>Ô</span>
-        <span>B</span>
-        <span>☆</span>
-      </div>
-
-      {/* TOP PILL HEADER */}
-      <div className="relative z-10 w-full max-w-4xl mx-auto">
-        <div className="flex items-center justify-between px-5 sm:px-7 py-3 rounded-full bg-[#fffef7] border-[3px] border-black shadow-[0_4px_0_0_rgba(0,0,0,0.85)] text-black">
-          <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#34d399] border-2 border-black text-black">
-              <LinkIcon className="h-5 w-5" />
-            </div>
-            <span className="font-black text-base sm:text-xl tracking-tight text-black">
-              Nối Từ Online
-            </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowChatModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-100 hover:bg-amber-200 border-2 border-black text-xs font-black text-black transition-colors cursor-pointer"
-            >
-              <MessageCircle className="h-4 w-4" />
-              <span className="hidden sm:inline">Chat ({chatMessages.length})</span>
-            </button>
-            <div className="flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-emerald-100 border-2 border-black text-xs font-black text-black">
-              <Users className="h-4 w-4" />
-              <span>{gameState.players.length}</span>
+    <div className="relative min-h-[calc(100dvh-76px)] pt-20 md:pt-24 pb-8 px-4 sm:px-8 max-w-5xl mx-auto flex flex-col justify-between select-none">
+      {/* TOP HEADER CONTROLS */}
+      <div className="glass-card flex items-center justify-between gap-3 px-5 py-3.5 rounded-[28px] bg-background/70 backdrop-blur-xl border border-primary/20 shadow-md">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/"
+            onClick={() => sounds.playClick()}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted/60 text-muted-foreground hover:bg-muted transition-colors cursor-pointer"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 rounded-full bg-primary/10 text-primary font-black text-xs border border-primary/20">
+                PHÒNG #{roomId} (ONLINE 🟢)
+              </span>
+              <span className="text-xs font-bold text-muted-foreground hidden sm:inline">
+                {gameState.language === "vi" ? "Tiếng Việt" : "Tiếng Anh"} • {gameState.players.length} người
+              </span>
             </div>
           </div>
         </div>
 
-        {/* SUB-HEADER CONTROLS */}
-        <div className="flex items-center justify-between mt-3 px-2">
-          <div className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-black/25 backdrop-blur-sm border border-white/20 text-xs font-bold text-white shadow-sm">
-            <LinkIcon className="h-3.5 w-3.5 opacity-80" />
-            <span>Phòng #{roomId}</span>
-          </div>
+        {/* Action buttons */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowChatModal(true)}
+            className="flex items-center gap-1.5 h-10 px-3.5 rounded-full bg-muted/60 hover:bg-muted text-xs font-bold text-foreground cursor-pointer transition-colors border border-border/50"
+          >
+            <MessageCircle className="h-4 w-4 text-primary" />
+            <span className="hidden sm:inline">Chat ({chatMessages.length})</span>
+          </button>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setShowSurrenderConfirm(true)}
-              className="flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 rounded-full bg-[#f87171] hover:bg-[#ef4444] text-black font-black text-xs border-2 border-black shadow-[0_3px_0_0_#991b1b] cursor-pointer transition-all active:translate-y-0.5"
-            >
-              <LogOut className="h-3.5 w-3.5" />
-              <span>Rời phòng</span>
-            </button>
+          <button
+            type="button"
+            onClick={() => setShowSurrenderConfirm(true)}
+            className="flex items-center gap-1.5 h-10 px-4 rounded-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 text-xs font-bold cursor-pointer transition-colors border border-rose-500/30"
+          >
+            <LogOut className="h-4 w-4" />
+            <span>Rời phòng</span>
+          </button>
 
-            <button
-              type="button"
-              onClick={handleCopyLink}
-              className="flex items-center gap-1.5 px-3.5 sm:px-4 py-1.5 rounded-full bg-[#60a5fa] hover:bg-[#3b82f6] text-black font-black text-xs border-2 border-black shadow-[0_3px_0_0_#1d4ed8] cursor-pointer transition-all active:translate-y-0.5"
-            >
-              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-              <span>{copied ? "Đã chép!" : "Copy link"}</span>
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={handleCopyLink}
+            className="btn-wf-silver flex items-center gap-1.5 h-10 px-4 rounded-full text-xs font-bold text-foreground cursor-pointer shadow-sm"
+          >
+            {copied ? <Check className="h-4 w-4 text-primary" /> : <Copy className="h-4 w-4" />}
+            <span className="hidden sm:inline">{copied ? "Đã sao chép!" : "Copy Link"}</span>
+          </button>
         </div>
       </div>
 
-      {/* MAIN ARENA BODY */}
-      <div className="relative z-10 flex-1 flex flex-col items-center justify-center my-auto py-4 w-full max-w-4xl mx-auto gap-4">
+      {/* MAIN ARENA CONTAINER */}
+      <div className="flex-1 flex flex-col items-center justify-center my-auto py-6 w-full max-w-3xl mx-auto gap-6">
         {gameState.status === "WAITING" ? (
           /* LOBBY WAITING SCREEN */
-          <div className="w-full max-w-xl bg-[#fffef7] border-[3.5px] border-black rounded-[36px] p-6 sm:p-8 text-black shadow-[0_8px_0_0_rgba(0,0,0,0.85)] flex flex-col items-center gap-5 animate-in zoom-in-95">
-            <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100 border-2 border-black text-xs font-black text-amber-800">
+          <div className="glass-card w-full rounded-[36px] p-6 sm:p-8 bg-background/80 backdrop-blur-xl border border-primary/20 shadow-2xl flex flex-col items-center gap-6 animate-in zoom-in-95">
+            <div className="flex items-center gap-2 px-3.5 py-1 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/30 text-xs font-black">
               <Sparkles className="h-4 w-4" />
               <span>PHÒNG CHỜ THI ĐẤU</span>
             </div>
 
-            <div className="text-center space-y-1">
-              <h2 className="text-2xl sm:text-3xl font-black text-black tracking-tight">
+            <div className="text-center space-y-1.5">
+              <h2 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">
                 Sẵn Sàng Thách Đấu!
               </h2>
-              <p className="text-xs text-gray-500 font-bold">
-                Mời bạn bè cùng vào phòng bằng mã <b>#{roomId}</b> hoặc bấm Copy Link ở góc trên
+              <p className="text-xs sm:text-sm text-muted-foreground font-medium max-w-md">
+                Mời bạn bè cùng vào phòng bằng mã <b className="text-primary">#{roomId}</b> hoặc bấm <b>Copy Link</b> ở góc trên
               </p>
             </div>
 
-            {/* Players cards */}
-            <div className="grid grid-cols-2 gap-3 w-full my-2">
+            {/* Players cards list */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full my-2">
               {gameState.players.map((p, idx) => (
                 <div
                   key={p.id}
-                  className="flex flex-col items-center gap-2 p-3.5 rounded-2xl bg-white border-2 border-black shadow-sm"
+                  className="flex items-center justify-between p-4 rounded-2xl bg-muted/40 border border-border/60 backdrop-blur-sm"
                 >
-                  <div
-                    className={`h-12 w-12 rounded-full border-2 border-black bg-gradient-to-br ${p.avatarColor} text-white flex items-center justify-center text-xl font-black`}
-                  >
-                    {p.nickname[0]}
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`h-12 w-12 rounded-2xl bg-gradient-to-br ${p.avatarColor} text-white flex items-center justify-center text-lg font-black shadow-md`}
+                    >
+                      {p.nickname[0]}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-black text-sm text-foreground truncate max-w-[130px]">{p.nickname}</p>
+                        {p.isHost && <Crown className="h-4 w-4 text-amber-500 shrink-0" />}
+                      </div>
+                      <span className="text-xs font-bold text-emerald-600">✓ Sẵn sàng chiến đấu</span>
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <p className="font-black text-xs text-black truncate max-w-[120px]">{p.nickname}</p>
-                    <span className="text-[10px] font-bold text-emerald-600">✓ Sẵn sàng</span>
-                  </div>
+                  <span className="text-xs font-mono text-muted-foreground opacity-60">#{idx + 1}</span>
                 </div>
               ))}
             </div>
@@ -409,85 +402,93 @@ export default function RoomMultiplayerPage({
               <button
                 type="button"
                 onClick={handleStartGame}
-                className="w-full h-14 rounded-full bg-[#34d399] hover:bg-[#10b981] active:translate-y-1 active:shadow-none border-[3px] border-black text-black font-black text-base shadow-[0_5px_0_0_rgba(0,0,0,0.85)] cursor-pointer flex items-center justify-center gap-2 transition-all"
+                className="btn-wf-primary w-full h-14 rounded-2xl font-black text-primary-foreground text-base flex items-center justify-center gap-2 cursor-pointer shadow-xl active:scale-95 transition-all"
               >
-                <Play className="h-5 w-5 fill-current" /> Bắt Đầu Trận Đấu
+                <Swords className="h-5 w-5" /> Bắt Đầu Trận Đấu
               </button>
             ) : (
-              <div className="p-3 rounded-2xl bg-gray-100 border-2 border-black/30 text-center text-xs font-bold text-gray-600 w-full">
+              <div className="p-3.5 rounded-2xl bg-muted/30 border border-border/50 text-center text-xs font-bold text-muted-foreground w-full animate-pulse">
                 ⏳ Đang chờ chủ phòng bắt đầu trận đấu...
               </div>
             )}
           </div>
         ) : gameState.status === "RPS" ? (
-          /* RPS PHASE (PHÂN CHIA LƯỢT ĐI ĐẦU) */
-          <div className="w-full max-w-xl bg-[#fffef7] border-[3.5px] border-black rounded-[36px] p-6 sm:p-8 text-black shadow-[0_8px_0_0_rgba(0,0,0,0.85)] flex flex-col items-center gap-5 animate-in zoom-in-95 text-center">
-            <div className="px-4 py-1 rounded-full bg-amber-200 border-2 border-black text-xs font-black text-black animate-pulse">
+          /* RPS PHASE */
+          <div className="glass-card w-full rounded-[36px] p-6 sm:p-8 bg-background/80 backdrop-blur-xl border border-primary/20 shadow-2xl flex flex-col items-center gap-6 animate-in zoom-in-95 text-center">
+            <div className="px-4 py-1 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/30 text-xs font-black animate-pulse">
               PHÂN CHIA LƯỢT ĐI ĐẦU
             </div>
 
-            <div className="space-y-1">
-              <h2 className="text-2xl sm:text-3xl font-black text-black tracking-tight">
+            <div className="space-y-1.5">
+              <h2 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight">
                 Chọn Búa, Kéo Hoặc Bao! ✊✌️🖐️
               </h2>
-              <p className="text-xs font-bold text-gray-500">
+              <p className="text-xs sm:text-sm text-muted-foreground font-medium">
                 {gameState.rpsState?.resultMessage || "Hãy chọn một biểu tượng để quyết định ai đi trước"}
               </p>
             </div>
 
-            {/* 3 RPS Choice Buttons */}
-            <div className="grid grid-cols-3 gap-3 w-full py-2">
+            {/* 3 RPS Choice Cards */}
+            <div className="grid grid-cols-3 gap-3 sm:gap-4 w-full py-2">
               <button
                 type="button"
                 onClick={() => handleChooseRPS("rock")}
                 disabled={!!gameState.rpsState?.winnerId}
-                className={`flex flex-col items-center justify-center p-3 sm:p-4 rounded-2xl border-[2.5px] border-black transition-all transform active:scale-95 cursor-pointer ${
+                className={`flex flex-col items-center justify-center p-4 sm:p-5 rounded-2xl border-2 transition-all transform active:scale-95 cursor-pointer ${
                   selectedRps === "rock"
-                    ? "bg-amber-300 scale-105 shadow-[0_4px_0_0_rgba(0,0,0,0.9)]"
-                    : "bg-white hover:bg-amber-50 shadow-[0_3px_0_0_rgba(0,0,0,0.7)]"
+                    ? "bg-amber-500/20 border-amber-500 scale-105 shadow-xl ring-2 ring-amber-400"
+                    : "bg-muted/40 border-border/80 hover:border-primary hover:bg-muted/60"
                 }`}
               >
-                <span className="text-4xl mb-1 select-none">✊</span>
-                <span className="font-black text-xs text-black">BÚA</span>
+                <span className="text-4xl sm:text-5xl mb-2 select-none">✊</span>
+                <span className="font-black text-xs sm:text-sm text-foreground">BÚA</span>
+                <span className="text-[10px] text-muted-foreground font-semibold mt-0.5">Đập Kéo</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => handleChooseRPS("scissors")}
                 disabled={!!gameState.rpsState?.winnerId}
-                className={`flex flex-col items-center justify-center p-3 sm:p-4 rounded-2xl border-[2.5px] border-black transition-all transform active:scale-95 cursor-pointer ${
+                className={`flex flex-col items-center justify-center p-4 sm:p-5 rounded-2xl border-2 transition-all transform active:scale-95 cursor-pointer ${
                   selectedRps === "scissors"
-                    ? "bg-amber-300 scale-105 shadow-[0_4px_0_0_rgba(0,0,0,0.9)]"
-                    : "bg-white hover:bg-amber-50 shadow-[0_3px_0_0_rgba(0,0,0,0.7)]"
+                    ? "bg-amber-500/20 border-amber-500 scale-105 shadow-xl ring-2 ring-amber-400"
+                    : "bg-muted/40 border-border/80 hover:border-primary hover:bg-muted/60"
                 }`}
               >
-                <span className="text-4xl mb-1 select-none">✌️</span>
-                <span className="font-black text-xs text-black">KÉO</span>
+                <span className="text-4xl sm:text-5xl mb-2 select-none">✌️</span>
+                <span className="font-black text-xs sm:text-sm text-foreground">KÉO</span>
+                <span className="text-[10px] text-muted-foreground font-semibold mt-0.5">Cắt Bao</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => handleChooseRPS("paper")}
                 disabled={!!gameState.rpsState?.winnerId}
-                className={`flex flex-col items-center justify-center p-3 sm:p-4 rounded-2xl border-[2.5px] border-black transition-all transform active:scale-95 cursor-pointer ${
+                className={`flex flex-col items-center justify-center p-4 sm:p-5 rounded-2xl border-2 transition-all transform active:scale-95 cursor-pointer ${
                   selectedRps === "paper"
-                    ? "bg-amber-300 scale-105 shadow-[0_4px_0_0_rgba(0,0,0,0.9)]"
-                    : "bg-white hover:bg-amber-50 shadow-[0_3px_0_0_rgba(0,0,0,0.7)]"
+                    ? "bg-amber-500/20 border-amber-500 scale-105 shadow-xl ring-2 ring-amber-400"
+                    : "bg-muted/40 border-border/80 hover:border-primary hover:bg-muted/60"
                 }`}
               >
-                <span className="text-4xl mb-1 select-none">🖐️</span>
-                <span className="font-black text-xs text-black">BAO</span>
+                <span className="text-4xl sm:text-5xl mb-2 select-none">🖐️</span>
+                <span className="font-black text-xs sm:text-sm text-foreground">BAO</span>
+                <span className="text-[10px] text-muted-foreground font-semibold mt-0.5">Bọc Búa</span>
               </button>
             </div>
 
             {/* Players choice status */}
-            <div className="flex items-center justify-center gap-6 pt-2 border-t-2 border-black/10 w-full">
+            <div className="flex items-center justify-center gap-6 pt-3 border-t border-border/50 w-full">
               {gameState.players.slice(0, 2).map((p) => {
                 const hasChosen = !!gameState.rpsState?.playerChoices[p.id];
                 return (
-                  <div key={p.id} className="flex items-center gap-1.5 text-xs font-bold text-black">
-                    <span className="font-black">{p.nickname}:</span>
-                    <span className={hasChosen ? "text-emerald-600 font-black" : "text-amber-600 animate-pulse"}>
+                  <div key={p.id} className="flex items-center gap-2 text-xs font-bold text-foreground">
+                    <div
+                      className={`h-7 w-7 rounded-full bg-gradient-to-br ${p.avatarColor} text-white flex items-center justify-center font-black text-[10px] shadow-sm`}
+                    >
+                      {p.nickname[0]}
+                    </div>
+                    <span>{p.nickname}:</span>
+                    <span className={hasChosen ? "text-emerald-500 font-black" : "text-amber-500 animate-pulse"}>
                       {hasChosen ? "✓ Đã chọn" : "Đang chọn..."}
                     </span>
                   </div>
@@ -496,8 +497,8 @@ export default function RoomMultiplayerPage({
             </div>
           </div>
         ) : (
-          /* ICONIC BATTLE ARENA */
-          <div className="w-full flex flex-col items-center gap-4">
+          /* ARENA BATTLE VIEW (MODERN GLASSMORPHIC & CLEAN) */
+          <div className="w-full flex flex-col items-center gap-5">
             {/* CIRCULAR TIMER AT TOP CENTER */}
             <div className="relative flex items-center justify-center w-16 h-16 sm:w-20 sm:h-20">
               <svg className="w-full h-full -rotate-90" viewBox="0 0 80 80">
@@ -505,26 +506,29 @@ export default function RoomMultiplayerPage({
                   cx="40"
                   cy="40"
                   r="34"
-                  stroke="rgba(0,0,0,0.25)"
-                  strokeWidth="7"
-                  fill="rgba(0,0,0,0.15)"
+                  stroke="currentColor"
+                  strokeWidth="6"
+                  fill="transparent"
+                  className="text-muted/40"
                 />
                 <circle
                   cx="40"
                   cy="40"
                   r="34"
-                  stroke={localTimeLeft <= 5 ? "#ef4444" : "#f87171"}
-                  strokeWidth="7"
+                  stroke="currentColor"
+                  strokeWidth="6"
                   strokeDasharray={213.6}
                   strokeDashoffset={213.6 * (1 - localTimeLeft / TURN_TIME_SEC)}
                   strokeLinecap="round"
                   fill="transparent"
-                  className="transition-all duration-500 ease-linear"
+                  className={`transition-all duration-500 ease-linear ${
+                    localTimeLeft <= 5 ? "text-rose-500 animate-pulse" : "text-primary"
+                  }`}
                 />
               </svg>
               <span
                 className={`absolute text-2xl sm:text-3xl font-black ${
-                  localTimeLeft <= 5 ? "text-rose-300 animate-bounce" : "text-rose-300"
+                  localTimeLeft <= 5 ? "text-rose-500 animate-bounce" : "text-foreground"
                 }`}
               >
                 {localTimeLeft}
@@ -533,31 +537,31 @@ export default function RoomMultiplayerPage({
 
             {/* WORD COUNT / PREVIOUS WORD PILL */}
             <div className="flex items-center justify-between w-full max-w-xl px-2">
-              <div className="flex items-center gap-1.5 text-xs font-black text-white">
+              <div className="flex items-center gap-1.5 text-xs font-black text-muted-foreground">
                 <span>ĐÃ NỐI</span>
-                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-400 border-2 border-black text-black text-xs font-black">
+                <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/20 text-primary border border-primary/30 text-xs font-black">
                   {Math.max(0, gameState.wordChain.length - 1)}
                 </span>
               </div>
 
               {prevItem && (
-                <div className="rounded-full bg-[#fffef7] border-2 border-black/80 px-3.5 py-0.5 text-xs font-black text-black shadow-sm select-none">
+                <div className="rounded-full bg-muted/60 border border-border/80 px-3.5 py-0.5 text-xs font-black text-muted-foreground shadow-sm select-none">
                   {prevItem.word}
                 </div>
               )}
             </div>
 
-            {/* MAIN WHITE/CREAM ARENA CARD */}
-            <div className="w-full max-w-2xl bg-[#fffef7] border-[3.5px] border-black rounded-[36px] p-5 sm:p-8 text-black shadow-[0_8px_0_0_rgba(0,0,0,0.85)] flex flex-col items-center gap-5">
+            {/* MAIN FOCUS ARENA CARD */}
+            <div className="glass-card w-full rounded-[36px] p-6 sm:p-8 bg-background/80 backdrop-blur-xl border border-primary/20 shadow-2xl flex flex-col items-center gap-6">
               {/* Inner Word Display Container */}
-              <div className="w-full bg-[#fffef7] border-[2.5px] border-black/80 rounded-[28px] py-8 sm:py-12 px-6 flex flex-col items-center justify-center text-center shadow-inner min-h-[140px] sm:min-h-[170px]">
-                <div className="text-4xl sm:text-6xl font-black text-[#1a1a1a] tracking-tight flex items-center justify-center flex-wrap gap-x-3">
+              <div className="w-full bg-muted/20 border border-primary/20 rounded-[28px] py-8 sm:py-12 px-6 flex flex-col items-center justify-center text-center shadow-inner min-h-[140px] sm:min-h-[170px]">
+                <div className="text-4xl sm:text-6xl font-black text-foreground tracking-tight flex items-center justify-center flex-wrap gap-x-3">
                   {firstSyllables && <span>{firstSyllables}</span>}
-                  <span className="relative inline-block text-black">
+                  <span className="relative inline-block text-primary">
                     {lastSyllable}
-                    {/* Wavy Underline */}
+                    {/* Modern Wavy Underline */}
                     <svg
-                      className="absolute -bottom-2.5 sm:-bottom-3.5 left-0 w-full h-3 sm:h-4 text-[#5eead4]"
+                      className="absolute -bottom-2 sm:-bottom-3 left-0 w-full h-3 sm:h-4 text-primary opacity-80"
                       viewBox="0 0 100 20"
                       preserveAspectRatio="none"
                     >
@@ -573,7 +577,7 @@ export default function RoomMultiplayerPage({
                 </div>
 
                 {lastItem?.meaning && (
-                  <p className="text-xs sm:text-sm font-medium text-gray-500 mt-4 max-w-md line-clamp-2">
+                  <p className="text-xs sm:text-sm font-medium text-muted-foreground mt-4 max-w-md line-clamp-2">
                     {lastItem.meaning}
                   </p>
                 )}
@@ -581,7 +585,7 @@ export default function RoomMultiplayerPage({
 
               {/* Error Alert */}
               {errorMessage && (
-                <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-rose-100 border-2 border-rose-500 text-xs font-black text-rose-700 animate-shake">
+                <div className="flex items-center gap-2 px-4 py-2 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-xs font-black text-rose-600 animate-shake">
                   <AlertCircle className="h-4 w-4 shrink-0" />
                   <span>{errorMessage}</span>
                 </div>
@@ -598,16 +602,16 @@ export default function RoomMultiplayerPage({
                     onChange={(e) => setInputWord(e.target.value)}
                     placeholder={
                       isMyTurn
-                        ? `${lastSyllable} ...`
+                        ? `${lastSyllable} ... (nhập từ nối tiếp)`
                         : "Đang chờ đến lượt của đối thủ..."
                     }
-                    className="w-full h-14 sm:h-16 px-6 sm:px-8 rounded-full border-[3px] border-black bg-[#fffef7] text-xl sm:text-2xl font-black text-black placeholder:text-gray-400 placeholder:text-base focus:outline-none focus:ring-4 focus:ring-emerald-400/40 shadow-[0_4px_0_0_rgba(0,0,0,0.85)] disabled:opacity-50 transition-all"
+                    className="w-full h-14 sm:h-16 px-6 sm:px-8 rounded-full border-2 border-border/80 bg-background text-xl sm:text-2xl font-black text-foreground placeholder:text-muted-foreground/60 placeholder:text-base focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/20 shadow-md disabled:opacity-50 transition-all"
                   />
                 </div>
                 <button
                   type="submit"
                   disabled={!isMyTurn || !inputWord.trim() || gameState.status === "FINISHED"}
-                  className="h-14 w-14 sm:h-16 sm:w-16 shrink-0 rounded-full bg-[#6ee7b7] hover:bg-[#34d399] active:translate-y-1 active:shadow-none border-[3px] border-black flex items-center justify-center text-black font-black shadow-[0_4px_0_0_rgba(0,0,0,0.9)] cursor-pointer transition-all disabled:opacity-50 disabled:pointer-events-none"
+                  className="btn-wf-primary h-14 w-14 sm:h-16 sm:w-16 shrink-0 rounded-full flex items-center justify-center text-primary-foreground font-black shadow-lg cursor-pointer transition-all disabled:opacity-50 disabled:pointer-events-none"
                 >
                   <Send className="h-6 w-6 stroke-[2.5]" />
                 </button>
@@ -615,60 +619,64 @@ export default function RoomMultiplayerPage({
             </div>
 
             {/* BOTTOM PLAYERS AVATARS ROW */}
-            <div className="flex items-end justify-between sm:justify-around w-full max-w-lg mx-auto pt-3 px-4">
+            <div className="flex items-end justify-between sm:justify-around w-full max-w-lg mx-auto pt-2 px-4">
               {/* Player 1 */}
               <div className="flex flex-col items-center gap-1.5">
                 <div
-                  className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-full border-[3px] border-black bg-gradient-to-br ${
-                    p1?.avatarColor || "from-amber-400 to-orange-500"
-                  } flex items-center justify-center text-white text-2xl font-black shadow-[0_4px_0_0_rgba(0,0,0,0.8)]`}
+                  className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br ${
+                    p1?.avatarColor || "from-emerald-400 to-green-600"
+                  } flex items-center justify-center text-white text-2xl font-black shadow-lg ring-4 ${
+                    isActiveP1 ? "ring-primary animate-pulse" : "ring-border/40"
+                  }`}
                 >
-                  <span className="select-none text-2xl sm:text-3xl">👦</span>
+                  <span>{p1?.nickname[0] || "1"}</span>
                   {p1?.isHost && (
-                    <span className="absolute -top-1 -right-1 text-base">👑</span>
+                    <span className="absolute -top-1.5 -right-1.5 text-base">👑</span>
                   )}
                 </div>
-                <span className="text-white font-black text-xs sm:text-sm tracking-wide drop-shadow-md">
+                <span className="text-foreground font-black text-xs sm:text-sm tracking-wide">
                   {p1?.nickname}
                 </span>
 
                 {/* Active turn bouncing dots */}
                 {isActiveP1 && gameState.status === "PLAYING" ? (
                   <div className="flex items-center gap-1 mt-0.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-white animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="w-2.5 h-2.5 rounded-full bg-white animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="w-2.5 h-2.5 rounded-full bg-white animate-bounce" style={{ animationDelay: "300ms" }} />
+                    <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "300ms" }} />
                   </div>
                 ) : (
-                  <span className="text-[10px] font-bold text-white/70">{p1?.score || 0} điểm</span>
+                  <span className="text-[10px] font-bold text-muted-foreground">{p1?.score || 0} điểm</span>
                 )}
               </div>
 
               {/* Player 2 */}
               <div className="flex flex-col items-center gap-1.5">
                 <div
-                  className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-full border-[3px] border-black bg-gradient-to-br ${
+                  className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-gradient-to-br ${
                     p2?.avatarColor || "from-cyan-400 to-blue-600"
-                  } flex items-center justify-center text-white text-2xl font-black shadow-[0_4px_0_0_rgba(0,0,0,0.8)]`}
+                  } flex items-center justify-center text-white text-2xl font-black shadow-lg ring-4 ${
+                    isActiveP2 ? "ring-primary animate-pulse" : "ring-border/40"
+                  }`}
                 >
-                  <span className="select-none text-2xl sm:text-3xl">👧</span>
+                  <span>{p2?.nickname[0] || "2"}</span>
                   {p2?.isHost && (
-                    <span className="absolute -top-1 -right-1 text-base">👑</span>
+                    <span className="absolute -top-1.5 -right-1.5 text-base">👑</span>
                   )}
                 </div>
-                <span className="text-white font-black text-xs sm:text-sm tracking-wide drop-shadow-md">
+                <span className="text-foreground font-black text-xs sm:text-sm tracking-wide">
                   {p2?.nickname || "Đang chờ..."}
                 </span>
 
                 {/* Active turn bouncing dots */}
                 {isActiveP2 && gameState.status === "PLAYING" ? (
                   <div className="flex items-center gap-1 mt-0.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-white animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="w-2.5 h-2.5 rounded-full bg-white animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="w-2.5 h-2.5 rounded-full bg-white animate-bounce" style={{ animationDelay: "300ms" }} />
+                    <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-2 h-2 rounded-full bg-primary animate-bounce" style={{ animationDelay: "300ms" }} />
                   </div>
                 ) : (
-                  <span className="text-[10px] font-bold text-white/70">
+                  <span className="text-[10px] font-bold text-muted-foreground">
                     {p2 ? `${p2.score || 0} điểm` : "Trống"}
                   </span>
                 )}
@@ -681,15 +689,15 @@ export default function RoomMultiplayerPage({
       {/* CHAT FLOATING MODAL */}
       {showChatModal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="w-full max-w-md bg-[#fffef7] border-[3.5px] border-black rounded-[32px] p-6 text-black shadow-2xl flex flex-col justify-between h-[420px]">
-            <div className="flex items-center justify-between pb-3 border-b-2 border-black/10">
+          <div className="glass-card w-full max-w-md bg-background/95 border border-primary/20 rounded-[32px] p-6 text-foreground shadow-2xl flex flex-col justify-between h-[420px]">
+            <div className="flex items-center justify-between pb-3 border-b border-border/50">
               <div className="flex items-center gap-2">
-                <MessageCircle className="h-5 w-5 text-emerald-600" />
-                <h3 className="font-black text-sm text-black">Chat Trong Phòng (#{roomId})</h3>
+                <MessageCircle className="h-5 w-5 text-primary" />
+                <h3 className="font-black text-sm text-foreground">Chat Trong Phòng (#{roomId})</h3>
               </div>
               <button
                 onClick={() => setShowChatModal(false)}
-                className="h-8 w-8 rounded-full border-2 border-black flex items-center justify-center text-xs font-black hover:bg-gray-100"
+                className="h-8 w-8 rounded-full bg-muted/60 hover:bg-muted flex items-center justify-center text-xs font-black cursor-pointer transition-colors"
               >
                 ✕
               </button>
@@ -697,27 +705,27 @@ export default function RoomMultiplayerPage({
 
             <div className="wordfight-scrollbar flex-1 overflow-y-auto space-y-2 py-3 pr-1 text-xs">
               {chatMessages.map((msg) => (
-                <div key={msg.id} className="p-2.5 rounded-xl bg-gray-100 border border-black/10">
+                <div key={msg.id} className="p-2.5 rounded-xl bg-muted/40 border border-border/40">
                   <div className="flex items-center justify-between text-[10px]">
-                    <span className="font-black text-emerald-700">{msg.sender}</span>
-                    <span className="text-gray-400">{msg.time}</span>
+                    <span className="font-black text-primary">{msg.sender}</span>
+                    <span className="text-muted-foreground opacity-60">{msg.time}</span>
                   </div>
-                  <p className="text-black font-medium text-xs mt-0.5">{msg.text}</p>
+                  <p className="text-foreground font-medium text-xs mt-0.5">{msg.text}</p>
                 </div>
               ))}
             </div>
 
-            <form onSubmit={handleSendChat} className="flex gap-2 pt-2 border-t-2 border-black/10">
+            <form onSubmit={handleSendChat} className="flex gap-2 pt-2 border-t border-border/50">
               <input
                 type="text"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 placeholder="Nhắn tin nhanh..."
-                className="flex-1 h-10 px-3.5 rounded-xl bg-white border-2 border-black text-xs font-bold text-black focus:outline-none"
+                className="flex-1 h-10 px-3.5 rounded-xl bg-muted/40 border border-border/60 text-xs font-bold text-foreground focus:outline-none focus:border-primary"
               />
               <button
                 type="submit"
-                className="h-10 px-4 rounded-xl bg-[#6ee7b7] border-2 border-black text-black font-black text-xs flex items-center justify-center cursor-pointer shadow-sm"
+                className="btn-wf-primary h-10 px-4 rounded-xl text-primary-foreground font-black text-xs flex items-center justify-center cursor-pointer shadow-sm"
               >
                 Gửi
               </button>
@@ -729,13 +737,13 @@ export default function RoomMultiplayerPage({
       {/* SURRENDER CONFIRMATION MODAL */}
       {showSurrenderConfirm && (
         <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in">
-          <div className="max-w-sm w-full p-6 rounded-[32px] bg-[#fffef7] border-[3.5px] border-black text-black text-center space-y-4 shadow-2xl">
-            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-100 border-2 border-black text-rose-600">
+          <div className="glass-card max-w-sm w-full p-6 rounded-[32px] bg-background/95 border border-rose-500/30 text-foreground text-center space-y-4 shadow-2xl">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-rose-500/10 text-rose-600 border border-rose-500/20">
               <Flag className="h-8 w-8" />
             </div>
             <div className="space-y-1">
-              <h3 className="text-lg font-black text-black">Rời Phòng / Đầu Hàng?</h3>
-              <p className="text-xs text-gray-600 font-bold">
+              <h3 className="text-lg font-black text-foreground">Rời Phòng / Đầu Hàng?</h3>
+              <p className="text-xs text-muted-foreground font-medium">
                 Nếu rời phòng, đối thủ sẽ được xử thắng trận đấu này ngay lập tức!
               </p>
             </div>
@@ -743,14 +751,14 @@ export default function RoomMultiplayerPage({
               <button
                 type="button"
                 onClick={() => setShowSurrenderConfirm(false)}
-                className="flex-1 h-11 rounded-2xl border-2 border-black bg-white hover:bg-gray-100 text-xs font-black cursor-pointer text-black"
+                className="btn-wf-silver flex-1 h-11 rounded-2xl text-xs font-black cursor-pointer"
               >
                 Ở Lại Chơi
               </button>
               <button
                 type="button"
                 onClick={handleSurrender}
-                className="flex-1 h-11 rounded-2xl bg-rose-500 hover:bg-rose-600 text-white font-black text-xs border-2 border-black shadow-[0_3px_0_0_rgba(0,0,0,0.8)] cursor-pointer"
+                className="flex-1 h-11 rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs cursor-pointer shadow-md"
               >
                 Xác Nhận Rời
               </button>
@@ -762,16 +770,16 @@ export default function RoomMultiplayerPage({
       {/* VICTORY / DEFEAT MODAL */}
       {gameState.status === "FINISHED" && (
         <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md animate-in zoom-in-95 duration-200">
-          <div className="max-w-md w-full p-8 rounded-[36px] bg-[#fffef7] border-[4px] border-black text-black text-center space-y-6 shadow-2xl">
-            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-tr from-amber-400 to-yellow-300 border-[3px] border-black text-amber-900 shadow-xl ring-4 ring-amber-400/30 animate-bounce">
+          <div className="glass-card max-w-md w-full p-8 rounded-[36px] bg-background/95 border border-primary/30 text-foreground text-center space-y-6 shadow-2xl">
+            <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-tr from-amber-400 to-yellow-300 text-amber-900 shadow-xl ring-4 ring-amber-400/30 animate-bounce">
               {isWinner ? <Trophy className="h-12 w-12" /> : <Flag className="h-12 w-12 text-rose-700" />}
             </div>
 
             <div className="space-y-2">
-              <h2 className="text-3xl font-black text-black">
+              <h2 className="text-3xl font-black text-foreground">
                 {isWinner ? "CHIẾN THẮNG! 🎉" : "THẤT BẠI! 💔"}
               </h2>
-              <p className="text-xs sm:text-sm font-bold text-gray-600">
+              <p className="text-xs sm:text-sm font-bold text-muted-foreground">
                 {gameState.finishReason === "timeout"
                   ? isWinner
                     ? `Đối thủ (${gameState.loser?.nickname}) đã hết thời gian suy nghĩ!`
@@ -785,8 +793,8 @@ export default function RoomMultiplayerPage({
             </div>
 
             {isWinner && (
-              <div className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-emerald-100 border-2 border-black text-emerald-800 font-black text-sm">
-                <Gem className="h-5 w-5 text-emerald-600" />
+              <div className="flex items-center justify-center gap-2 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 font-black text-sm">
+                <Gem className="h-5 w-5 text-emerald-500" />
                 <span>+20 💎 Kim Cương Khích Lệ</span>
               </div>
             )}
@@ -795,14 +803,14 @@ export default function RoomMultiplayerPage({
               <button
                 type="button"
                 onClick={handleRestart}
-                className="w-full h-12 rounded-2xl bg-[#34d399] hover:bg-[#10b981] active:translate-y-1 active:shadow-none border-[3px] border-black text-black font-black text-sm shadow-[0_4px_0_0_rgba(0,0,0,0.85)] cursor-pointer flex items-center justify-center gap-2 transition-all"
+                className="btn-wf-primary w-full h-12 rounded-2xl font-black text-primary-foreground text-sm shadow-lg cursor-pointer flex items-center justify-center gap-2 transition-all"
               >
                 <RotateCcw className="h-4 w-4" /> Chơi Lại Ván Mới
               </button>
               <Link
                 href="/"
                 onClick={() => sounds.playClick()}
-                className="w-full h-11 rounded-2xl bg-white hover:bg-gray-100 border-2 border-black text-black font-black text-xs flex items-center justify-center cursor-pointer"
+                className="btn-wf-silver w-full h-11 rounded-2xl font-black text-foreground flex items-center justify-center text-xs cursor-pointer"
               >
                 ← Quay Về Trang Chủ
               </Link>

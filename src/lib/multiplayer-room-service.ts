@@ -151,42 +151,86 @@ export class MultiplayerRoomService {
         },
       });
 
-      // Handle presence (players join/leave)
-      this.channel.on("presence", { event: "sync" }, () => {
+      // 1. Presence Sync
+      const handlePresenceUpdate = () => {
         const presenceState = this.channel?.presenceState() || {};
-        const onlinePlayers: RoomPlayer[] = [];
+        const onlineMap = new Map<string, RoomPlayer>();
+
+        // Always keep local player
+        onlineMap.set(this.localPlayer.id, this.localPlayer);
 
         Object.values(presenceState).forEach((presences: any) => {
           presences.forEach((p: any) => {
             if (p.id) {
-              onlinePlayers.push({
+              const existing = onlineMap.get(p.id);
+              onlineMap.set(p.id, {
                 id: p.id,
-                nickname: p.nickname || "Người chơi",
-                avatarColor: p.avatarColor || "from-emerald-400 to-green-600",
+                nickname: p.nickname || existing?.nickname || "Người chơi",
+                avatarColor: p.avatarColor || existing?.avatarColor || "from-emerald-400 to-green-600",
                 avatarFrame: p.avatarFrame || "default",
-                isHost: !!p.isHost,
+                isHost: p.isHost ?? existing?.isHost ?? false,
                 isReady: true,
-                score: p.score || 0,
+                score: p.score ?? existing?.score ?? 0,
                 isEliminated: !!p.isEliminated,
               });
             }
           });
         });
 
-        if (onlinePlayers.length > 0) {
-          const hasHost = onlinePlayers.some((p) => p.isHost);
-          if (!hasHost) onlinePlayers[0].isHost = true;
-
-          this.state.players = onlinePlayers;
+        const list = Array.from(onlineMap.values());
+        if (list.length > 0) {
+          const hasHost = list.some((p) => p.isHost);
+          if (!hasHost) list[0].isHost = true;
+          this.state.players = list;
           this.onStateChange({ ...this.state });
         }
+      };
+
+      this.channel.on("presence", { event: "sync" }, handlePresenceUpdate);
+      this.channel.on("presence", { event: "join" }, ({ newPresences }) => {
+        handlePresenceUpdate();
+      });
+      this.channel.on("presence", { event: "leave" }, () => {
+        handlePresenceUpdate();
       });
 
-      // Handle broadcast events
+      // 2. Direct Broadcast Events (Instant Handshake between players)
       this.channel
+        .on("broadcast", { event: "player_hello" }, ({ payload }) => {
+          if (payload?.player && payload.player.id !== this.localPlayer.id) {
+            const incoming = payload.player;
+            const exists = this.state.players.some((p) => p.id === incoming.id);
+            if (!exists) {
+              this.state.players = [...this.state.players, incoming];
+              this.onStateChange({ ...this.state });
+            }
+            // If I am host, send full game state back to incoming player
+            if (this.localPlayer.isHost) {
+              this.channel?.send({
+                type: "broadcast",
+                event: "room_welcome",
+                payload: { state: this.state },
+              });
+            }
+          }
+        })
+        .on("broadcast", { event: "room_welcome" }, ({ payload }) => {
+          if (payload?.state) {
+            this.state = {
+              ...this.state,
+              ...payload.state,
+              players: this.mergePlayers(this.state.players, payload.state.players),
+            };
+            this.onStateChange({ ...this.state });
+          }
+        })
         .on("broadcast", { event: "game_state" }, ({ payload }) => {
           if (payload) {
-            this.state = { ...this.state, ...payload };
+            this.state = {
+              ...this.state,
+              ...payload,
+              players: this.mergePlayers(this.state.players, payload.players || []),
+            };
             this.onStateChange({ ...this.state });
           }
         })
@@ -211,6 +255,13 @@ export class MultiplayerRoomService {
             isHost: this.localPlayer.isHost,
             score: 0,
           });
+
+          // Announce hello to everyone in the room
+          this.channel?.send({
+            type: "broadcast",
+            event: "player_hello",
+            payload: { player: this.localPlayer },
+          });
         }
       });
     } catch (err) {
@@ -218,7 +269,17 @@ export class MultiplayerRoomService {
     }
   }
 
-  // ===================== RPS PHASE (OẲN TÙ TÌ) =====================
+  private mergePlayers(current: RoomPlayer[], incoming: RoomPlayer[]): RoomPlayer[] {
+    const map = new Map<string, RoomPlayer>();
+    current.forEach((p) => map.set(p.id, p));
+    incoming.forEach((p) => {
+      const existing = map.get(p.id);
+      map.set(p.id, { ...existing, ...p });
+    });
+    return Array.from(map.values());
+  }
+
+  // ===================== RPS PHASE =====================
   public startRPSPhase() {
     if (this.state.players.length === 0) return;
 
@@ -241,7 +302,6 @@ export class MultiplayerRoomService {
 
     this.state.rpsState.playerChoices[this.localPlayer.id] = choice;
 
-    // Check if both players (or all players) have made their choice
     const numPlayers = Math.min(this.state.players.length, 2);
     const choices = Object.values(this.state.rpsState.playerChoices);
 
@@ -271,7 +331,6 @@ export class MultiplayerRoomService {
     };
 
     if (c1 === c2) {
-      // Tie: randomly pick or default to p1
       winnerId = Math.random() > 0.5 ? p1.id : (p2?.id || p1.id);
       const winnerName = this.state.players.find((p) => p.id === winnerId)?.nickname || "Người chơi";
       message = `Hòa (${choiceNames[c1]} vs ${choiceNames[c2]})! Hệ thống chỉ định ${winnerName} đi trước.`;
@@ -291,7 +350,6 @@ export class MultiplayerRoomService {
     this.state.rpsState.resultMessage = message;
     this.broadcastState();
 
-    // After 2.5 seconds, start the actual game with the starter word!
     setTimeout(() => {
       this.startPlayingFromRPS(winnerId);
     }, 2500);
@@ -318,9 +376,7 @@ export class MultiplayerRoomService {
       },
     ];
 
-    // Reset scores
     this.state.players.forEach((p) => (p.score = 0));
-
     this.broadcastState();
   }
 
@@ -343,7 +399,6 @@ export class MultiplayerRoomService {
       return false;
     }
 
-    // Add to chain
     const newItem: WordChainItem = {
       word: evalResult.normalizedWord,
       meaning: evalResult.meaning,
@@ -356,7 +411,6 @@ export class MultiplayerRoomService {
     this.state.wordChain.push(newItem);
     activePlayer.score += 10;
 
-    // Switch turn to next player
     let nextIdx = (this.state.activePlayerIndex + 1) % this.state.players.length;
     let count = 0;
     while (this.state.players[nextIdx].isEliminated && count < this.state.players.length) {
@@ -378,7 +432,6 @@ export class MultiplayerRoomService {
     const timedOutPlayer = this.state.players[this.state.activePlayerIndex];
     if (!timedOutPlayer) return;
 
-    // The other player is the winner
     const otherIdx = (this.state.activePlayerIndex + 1) % this.state.players.length;
     const winnerPlayer = this.state.players[otherIdx] || timedOutPlayer;
 
